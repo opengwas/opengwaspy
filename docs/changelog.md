@@ -13,3 +13,5 @@
 - The default client is closed at interpreter exit.
 - `variants_rsid()` and `variants_chrpos()`, across every served Store by default.
 - LD: `ld_stores()`, `ld_matrix()` and `ld_region()` (square r matrices), `ld_clump()`, `ld_proxies()` and `ld_reflookup()`. `LDRefusal` says what the store can answer instead.
+- `opengwaspy.compat`: ieugwaspy's functions and defaults, with proxies and clumping through the LD stores, and refusals where the Data API cannot answer exactly.
+- The migration guide from ieugwaspy, and ieugwaspy's usage examples, rewritten.

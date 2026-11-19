@@ -27,6 +27,8 @@ nav:
   - Home: index.md
   - Install: install.md
   - Quickstart: quickstart.md
+  - Migrating from ieugwaspy: migrating.md
+  - Usage examples: examples.md
   - Guide:
       - Authentication: guide/authentication.md
       - Metadata: guide/metadata.md
@@ -43,6 +45,7 @@ nav:
       - Top hits and PheWAS: reference/hits.md
       - Variants: reference/variants.md
       - LD: reference/ld.md
+      - ieugwaspy compatibility: reference/compat.md
       - Configuration: reference/config.md
       - Authentication: reference/auth.md
       - Jobs: reference/jobs.md

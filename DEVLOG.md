@@ -9,6 +9,20 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #46: migration guide and usage examples
+
+- **`docs/migrating.md`:** every ieugwaspy 1.0.6 function, with its compat and native equivalents and a status (same, differs, not available). Then why each differs: analysis IDs, top-hit clumping (the refusal text), proxies (the analysis's ancestry; HGDP + 1000 Genomes), PheWAS (filtered here, refused beyond 10,000 per Store), and columns (`beta`, `p`, `n` derived).
+- **`examples/usage_examples.py`:** ieugwaspy's `usage_examples.ipynb`, scenario by scenario, as a script, with the output shown in `docs/examples.md`. A script was chosen over a notebook so it can run in the live tests without Jupyter, and be type-checked (`mypy` now covers `examples/`). `tests/test_live_examples.py` runs it.
+- **Live run (6433), 38 s:**
+  - 38,152 analyses.
+  - BMI analyses found by label.
+  - OGS-00011:GCST90179150 (the largest BMI analysis) gives 118 leads at r² 0.001 within 3,000 kb. More than 10,000 of its hits are genome-wide significant, so the clumping is warned as partial, and 1,578 hits were not in the EUR store.
+  - The 3 SNPs × 3 BMI studies were all found directly.
+  - The PheWAS of rs1421085 at p ≤ 1e-5 worked.
+  - `19:44908684` gives rs429358.
+- **REQUIREMENTS §11.3** (the notebook scenarios run in the docs) is met by the script and page.
+- **Evidence:** ruff and mypy are clean. `uv run pytest`: 219 passed. `uv run pytest -m live --no-cov`: 28 passed. `mkdocs build --strict` passed.
+
 ## 2026-11-19 - #43: compat associations with LD proxies
 
 - **`compat.associations(variant, id, proxies=1, r2=0.8, align_alleles=1, palindromes=1, maf_threshold=0.3)`.**
