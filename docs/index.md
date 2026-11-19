@@ -5,11 +5,11 @@ opengwaspy is the Python client for the [OpenGWAS](https://opengwas.io) Data API
 It succeeds [ieugwaspy](https://github.com/MRCIEU/ieugwaspy). The new API runs every query as a *job*: you submit the query, the API queues and runs it fairly alongside everyone else's, and you read the result in pages. opengwaspy does all of that for you, so one call gives you one table.
 
 !!! warning "Pre-alpha"
-    opengwaspy is under active development and not yet released. Today it provides the
-    foundations: configuration, authentication, and running any Data API query as a job.
-    Functions for each kind of query, and an ieugwaspy-compatible layer, are coming. Progress
-    is on the [project board](https://github.com/orgs/opengwas/projects/1) (Workstream:
-    Python client).
+    opengwaspy is under active development and not yet released. It covers every Data API
+    operation: metadata, associations, top hits, PheWAS, variants and LD. An
+    ieugwaspy-compatible layer, and support for the OpenGWAS Gateway, are coming. Progress is
+    on the [project board](https://github.com/orgs/opengwas/projects/1) (Workstream: Python
+    client).
 
 ## What it does for you
 
@@ -20,5 +20,6 @@ It succeeds [ieugwaspy](https://github.com/MRCIEU/ieugwaspy). The new API runs e
 
 ## Next
 
-- [Install](install.md)
-- [Reference](reference/config.md)
+- [Install](install.md), then the [Quickstart](quickstart.md)
+- The guide: [Metadata](guide/metadata.md), [Associations](guide/associations.md), [Top hits and PheWAS](guide/tophits-phewas.md), [Variants](guide/variants.md), [LD](guide/ld.md), [Jobs](guide/jobs.md)
+- The [reference](reference/client.md), generated from the code

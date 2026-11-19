@@ -9,6 +9,15 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #18: quickstart, authentication and jobs pages
+
+- **Pages:** `docs/quickstart.md`, `docs/guide/authentication.md` and `docs/guide/jobs.md`, with output captured live from 6433.
+  - The top hits of OGS-00006:GCST90199621 at 5e-8: 557, not truncated.
+  - A 10-hit job's status and metadata.
+- **Authentication page:** the precedence table and config file; developer keys now; the Gateway with an OpenGWAS JWT (14 days), its sign-in flow not yet final, behind the auth providers; allowance handling.
+- **Home and install pages:** updated now that every Data API operation is covered.
+- **Evidence:** `uv run mkdocs build --strict` passed.
+
 ## 2026-11-19 - #33: LD
 
 - **`opengwaspy.ld`:**
