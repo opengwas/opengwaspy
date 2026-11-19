@@ -53,7 +53,7 @@ Positions are one-based and inclusive. A range wider than 10 Mb is split into 10
 | `effect_allele`, `other_allele`, `eaf` | Alleles, and the effect allele's frequency |
 | `z`, `se` | The z-score and standard error, on the analysis's `stored_effect_scale` (see `gwasinfo`) |
 | `log10_p` | log10 of the p-value, as the API gives it (−133.3 means p = 10⁻¹³³·³) |
-| `p` | **Derived by opengwaspy** as `10 ** log10_p` |
+| `p` | **Derived by opengwaspy** as `10 ** log10_p`. Below about 1e-308, `p` is 0.0, the limit of floating point; `log10_p` keeps the value |
 | `association_status` | `observed`, or imputed |
 
 There is no `beta` or `n` column: the API does not serve them. The effect on the stored scale is `z × se`, and sample sizes are in `gwasinfo`.
