@@ -37,14 +37,16 @@ Order: E1, then E2 and E5's skeleton, then E3, then E4. E6 starts its interface 
 - **Board:** a new Workstream, **Python client**.
 - **Development API:** the host's Data API at `host.lima.internal:6433`, with a developer key named `opengwaspy` (`OGDB_DEVELOPER_KEYS`), held in the untracked `opengwaspy/.env`.
 - **Authentication:** a pluggable provider interface from the start, because the Gateway's user authentication workflow is not final (REQUIREMENTS §8).
+- **Licence:** GPLv3 (`LICENSE`), keeping scope for dual licensing. To keep that option open, every contribution must be licensable by the copyright holder: contributors agree to a contributor licence agreement or copyright assignment before a PR from outside the core team is merged (E1 ticket).
+- **Compat `tophits` default:** ieugwaspy's default clumping (r² 0.001 within 10 Mb) is refused with `LDRefusal`. The error explains that the LD Stores do not hold r² below `t_far` beyond `near_bp`, and recommends answerable settings: r² ≥ the store's `t_far` (about 0.03; AMR 0.063) with `kb=10000`, or any r² with `kb` ≤ `near_bp` (3,000 kb). It never clumps at other settings silently (E4).
+- **Merging:** agents may merge their own PRs once checks pass, unless the PR makes a breaking change to the public API or needs human input.
 
 ## Open questions
 
 | Question | Waiting on | Affects |
 |---|---|---|
-| Licence (ieugwaspy is MIT) | owner | E1 |
+| Contributor agreement for dual licensing (CLA text, tooling) | owner | E1 |
 | The Gateway's final user login flow (device flow, browser, API keys?) and token lifetime | opengwas-gateway | E6 |
-| ieugwaspy's `tophits` default (clump at r² 0.001, 10 Mb) is refused by every LD Store. Refuse, or clump at the nearest answerable setting with a warning? | owner | E4 |
 | Mapping from OpenGWAS IDs (`ieu-a-2`) and `batch` to Data API analyses and Stores | ogdb-api / Analysis Catalog | E4 |
 | rsID → ALID for LD queries: through `variants/rsid` per Store, or does the LD Store need its own lookup? (ogld#79) | ogdb-api | E4 |
 | Will the API return `beta` and `n` in association rows? | ogdb-api | E3, E4 |

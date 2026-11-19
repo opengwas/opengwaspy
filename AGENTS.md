@@ -51,7 +51,7 @@ Planned work is tracked on the [OpenGWASDB project board](https://github.com/org
   - `set KEY Field=Value` updates fields;
   - `apply CHANGES.json --dry-run`, then without `--dry-run`, applies a set of changes;
   - `post-update` posts a status update.
-- **Ask before outward changes.** Get the owner's approval before creating, closing or re-parenting issues, posting a status update, pushing to `main`, publishing docs for the first time, or publishing to PyPI.
+- **Ask before outward changes.** Get the owner's approval before closing epics, re-parenting issues, posting a status update, publishing docs for the first time, or publishing to PyPI. Filing tickets under an approved epic, and closing tickets with evidence, need no further approval.
 - **What stays in the repo.** `WORKPLAN.md` points at the issues and records the owner's design decisions. `DEVLOG.md` holds the evidence. Neither keeps a second copy of the board's status.
 
 ## Environment
@@ -107,6 +107,7 @@ Before closing a ticket that touches API behaviour, also run `uv run pytest -m l
 ## Git discipline
 
 - Work on a branch per ticket; open a PR into `main` with `Closes #n`. Commit directly to `main` only with the owner's approval.
+- You may merge your own PR once its checks pass, unless it makes a breaking change to the public API or needs human input (a decision, a credential, a first publication). Then ask the owner.
 - Each commit has one purpose and passes the checks. Use the repository's configured git identity.
 - Inspect the diff and status before committing: `git diff --check`, `git status --short`, then `git add <scoped files>`.
 - Never use destructive history operations unless explicitly requested.

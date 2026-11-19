@@ -97,7 +97,7 @@ Each default is honoured by composing server operations, or refused:
 | ieugwaspy call and default | How opengwaspy honours it |
 |---|---|
 | `associations(proxies=1, r2=0.8)` | Look the variants up. For variants absent from an analysis, ask `ld/proxies` (r² ≥ `r2`) in the requested ancestry's LD Store, fetch the best proxy present, and align its alleles (`align_alleles=1`), dropping or inferring palindromes by `maf_threshold` as ieugwasr does. Rows are flagged as proxies (`proxy`, `target_snp`, `proxy_snp`, `proxy_r2`). |
-| `tophits(clump=1, r2=0.001, kb=10000, pop="EUR")` | Fetch top hits, map them to ALIDs, and clump with `ld/clump` (scores \|z\|). The API's stores refuse r² 0.001 within 10 Mb (`threshold_below_t_far`). The compat layer refuses with an explanation and the nearest answerable settings, unless the caller passes an explicit `ld_policy` (WORKPLAN decision required). |
+| `tophits(clump=1, r2=0.001, kb=10000, pop="EUR")` | Fetch top hits, map them to ALIDs, and clump with `ld/clump` (scores \|z\|). The API's stores refuse r² 0.001 within 10 Mb (`threshold_below_t_far`), so the compat layer raises `LDRefusal` before submitting. The error explains why, and recommends answerable settings from the store's facts (`ld_stores()`): r² ≥ `t_far` with `kb=10000`, or any r² with `kb` ≤ `near_bp`. Answerable settings passed explicitly are honoured. |
 | `tophits(preclumped=1, bychr=0, force_server=False)` | Accepted for compatibility. They no longer change the result, and this is documented. |
 | `phewas(variant=[...], pval=1e-3, batch=[])` | One PheWAS job per variant. Filter to `p <= pval` on the client, and raise if the server truncated the result before the filter could see every row. `batch` maps to the corresponding releases, or is refused. |
 | `variants_chrpos("chr:pos")`, `variants_to_rsid` | `variants/chrpos`, returning the first rsID as ieugwaspy did, and warning when a position has several. |
@@ -134,7 +134,7 @@ A MkDocs Material site on GitHub Pages (`https://opengwas.github.io/opengwaspy/`
 - Runtime dependencies kept small: `httpx`, `pandas`. Optional extras are allowed if a later need arises.
 - ruff (lint and format) and mypy (strict on `src/`). Unit test coverage of at least 90% on `src/`.
 - PyPI publishing through trusted publishing, triggered by a release tag, only once the owner approves the first release.
-- Licence: to be confirmed by the owner (ieugwaspy is MIT).
+- Licence: GPLv3 (`LICENSE`), with scope for dual licensing; contributions need a contributor agreement (WORKPLAN, 19 Nov 2026).
 
 ## 11. Acceptance
 
