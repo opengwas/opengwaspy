@@ -13,19 +13,17 @@ This file does not track status, so it never disagrees with the board. It keeps:
 
 ## Epics
 
-Issue numbers are filled in once the owner approves the board changes.
+| Epic | Summary | Tickets | Depends on |
+|---|---|---|---|
+| #2 **opengwaspy has a tested package skeleton and CI** | pyproject (hatchling, uv), ruff, mypy, pytest with `live` marker, CI on Python 3.10–3.14, `.env` handling, licence | #9–#11 | — |
+| #3 **opengwaspy runs any Data API query as a job** | transport, errors, retries and `Retry-After`, job submit/poll/page/cancel/resume, bounded concurrency, prefix-relative URLs | #12–#16 | #2 |
+| #4 **Every Data API operation has a native opengwaspy function** | service, metadata, associations (+range, +analysis), top hits, PheWAS, variants, LD; DataFrame results with provenance; chunking | filed when #3 lands | #3 |
+| #5 **ieugwaspy users can migrate to opengwaspy** | the compat layer, client-side proxies and clumping through the LD operations, PheWAS `pval` filtering, rsID↔ALID mapping, refusals, migration guide, ported usage notebook | filed when #4 lands | #4 |
+| #6 **opengwaspy has a published documentation site** | MkDocs Material, user guide, API reference, executed examples, GitHub Pages deployment | #17, #18 | #2 (site skeleton); grows with #4, #5 |
+| #7 **opengwaspy works through the Gateway** | `/ogdb` prefix, OpenGWAS JWT provider, `X-Allowance-*` handling, the final login flow behind the auth interface, live tests through the Gateway | filed when the Gateway's auth is decided | #3; the Gateway's user auth workflow (opengwas-gateway) |
+| #8 **opengwaspy is released on PyPI** | versioning, changelog, trusted publishing, release checklist, ieugwaspy pointing to its successor | filed at release | #4, #5, #6; owner approval |
 
-| # | Epic | Depends on |
-|---|---|---|
-| E1 | **opengwaspy has a tested package skeleton and CI**: pyproject (hatchling, uv), ruff, mypy, pytest with `live` marker, CI on Python 3.10–3.14, `.env` handling, licence | — |
-| E2 | **opengwaspy runs any Data API query as a job**: transport, errors, retries and `Retry-After`, job submit/poll/page/cancel/resume, bounded concurrency, prefix-relative URLs | E1 |
-| E3 | **Every Data API operation has a native opengwaspy function**: service, metadata, associations (+range, +analysis), top hits, PheWAS, variants, LD; DataFrame results with provenance; chunking | E2 |
-| E4 | **ieugwaspy users can migrate to opengwaspy**: the compat layer, client-side proxies and clumping through the LD operations, PheWAS `pval` filtering, rsID↔ALID mapping, refusals, migration guide, ported usage notebook | E3 |
-| E5 | **opengwaspy has a published documentation site**: MkDocs Material, user guide, API reference, executed examples, GitHub Pages deployment | E1 (site skeleton); grows with E3, E4 |
-| E6 | **opengwaspy works through the Gateway**: `/ogdb` prefix, OpenGWAS JWT provider, `X-Allowance-*` handling, the final login flow behind the auth interface, live tests through the Gateway | E2; the Gateway's user auth workflow (opengwas-gateway) |
-| E7 | **opengwaspy is released on PyPI**: versioning, changelog, trusted publishing, release checklist, ieugwaspy pointing to its successor | E3, E4, E5; owner approval |
-
-Order: E1, then E2 and E5's skeleton, then E3, then E4. E6 starts its interface work in E2 (the auth provider), and its integration waits on the Gateway. E7 last.
+Order: #2, then #3 and #6's skeleton, then #4, then #5. #7 starts its interface work in #3 (the auth provider, #12), and its integration waits on the Gateway. #8 last.
 
 ## Decisions
 
@@ -34,7 +32,7 @@ Order: E1, then E2 and E5's skeleton, then E3, then E4. E6 starts its interface 
 - **Returns:** pandas `DataFrame`s by default, with provenance and metadata attached. pandas is a required dependency.
 - **Targets:** Python ≥ 3.10; pyproject with hatchling; PyPI publication later, only once the owner approves a first release.
 - **Docs:** MkDocs Material with mkdocstrings, deployed to GitHub Pages by Actions.
-- **Board:** a new Workstream, **Python client**.
+- **Board:** a new Workstream, **Python client**. Added to the project's Workstream field and README on 19 Nov 2026; Tool integration's scope line no longer names ieugwaspy.
 - **Development API:** the host's Data API at `host.lima.internal:6433`, with a developer key named `opengwaspy` (`OGDB_DEVELOPER_KEYS`), held in the untracked `opengwaspy/.env`.
 - **Authentication:** a pluggable provider interface from the start, because the Gateway's user authentication workflow is not final (REQUIREMENTS §8).
 - **Licence:** GPLv3 (`LICENSE`), keeping scope for dual licensing. To keep that option open, every contribution must be licensable by the copyright holder: contributors agree to a contributor licence agreement or copyright assignment before a PR from outside the core team is merged (E1 ticket).
@@ -45,9 +43,9 @@ Order: E1, then E2 and E5's skeleton, then E3, then E4. E6 starts its interface 
 
 | Question | Waiting on | Affects |
 |---|---|---|
-| Contributor agreement for dual licensing (CLA text, tooling) | owner | E1 |
-| The Gateway's final user login flow (device flow, browser, API keys?) and token lifetime | opengwas-gateway | E6 |
-| Mapping from OpenGWAS IDs (`ieu-a-2`) and `batch` to Data API analyses and Stores | ogdb-api / Analysis Catalog | E4 |
-| rsID → ALID for LD queries: through `variants/rsid` per Store, or does the LD Store need its own lookup? (ogld#79) | ogdb-api | E4 |
-| Will the API return `beta` and `n` in association rows? | ogdb-api | E3, E4 |
-| ieugwaspy's README and PyPI page pointing to opengwaspy | owner (MRCIEU repo) | E7 |
+| Contributor agreement for dual licensing (CLA text, tooling) | owner | #11 |
+| The Gateway's final user login flow (device flow, browser, API keys?) and token lifetime | opengwas-gateway | #7 |
+| Mapping from OpenGWAS IDs (`ieu-a-2`) and `batch` to Data API analyses and Stores | ogdb-api / Analysis Catalog | #5 |
+| rsID → ALID for LD queries: through `variants/rsid` per Store, or does the LD Store need its own lookup? (ogld#79) | ogdb-api | #5 |
+| Will the API return `beta` and `n` in association rows? | ogdb-api | #4, #5 |
+| ieugwaspy's README and PyPI page pointing to opengwaspy | owner (MRCIEU repo) | #8 |
