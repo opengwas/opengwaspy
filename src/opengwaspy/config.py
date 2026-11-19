@@ -36,7 +36,7 @@ if sys.version_info >= (3, 11):
 else:  # pragma: no cover - exercised on Python 3.10 only
     import tomli as tomllib
 
-__all__ = ["PROFILES", "Config", "ConfigError", "config_path"]
+__all__ = ["PROFILES", "Config", "ConfigError", "config_path", "save_setting"]
 
 #: Named base URLs, as ieugwaspy's ``select_api`` had.
 PROFILES: dict[str, str] = {
@@ -242,3 +242,40 @@ class Config:
         if path.startswith("/") and not path.startswith("/api/"):
             return urljoin(self.base_url + "/", path)
         return f"{self.base_url}/{path.lstrip('/')}"
+
+
+def save_setting(key: str, value: str, path: Path | None = None) -> Path:
+    """Save one setting to the user config file, keeping the others.
+
+    The file is written with mode 0600, because it may hold a credential. Only one
+    credential may be set, so saving a ``token`` removes a saved ``jwt``, and the
+    other way round.
+
+    Args:
+        key: ``url``, ``profile``, ``token`` or ``jwt``.
+        value: The value.
+        path: The config file; defaults to :func:`config_path`.
+
+    Returns:
+        The file written.
+    """
+    if key not in ("url", "profile", "token", "jwt"):
+        raise ConfigError(f"unknown setting {key!r}")
+    path = path or config_path()
+    data = {k: v for k, v in _read_config_file(path).items() if isinstance(v, str)}
+    data[key] = value
+    if key in ("token", "jwt"):
+        data.pop("jwt" if key == "token" else "token", None)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = "".join(f"{k} = {_toml_string(v)}\n" for k, v in sorted(data.items()))
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        fh.write(text)
+    if os.name == "posix":
+        path.chmod(0o600)
+    return path
+
+
+def _toml_string(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
