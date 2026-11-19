@@ -99,8 +99,10 @@ class Transport:
         self.config = config if config is not None else Config.load()
         self._own_client = client is None
         self._client = client if client is not None else httpx.Client(timeout=self.config.timeout)
-        self._sleep = sleep
-        self._clock = clock
+        #: Function used to wait, in seconds (jobs poll with it too).
+        self.sleep = sleep
+        #: Monotonic clock, in seconds.
+        self.clock = clock
         self._wall_clock = wall_clock
         self._jitter = jitter
         self._lock = threading.Lock()
@@ -161,7 +163,7 @@ class Transport:
         """
         url = self.config.url(path)
         request_id = request_id or uuid.uuid4().hex
-        started = self._clock()
+        started = self.clock()
         attempt = 0
         refreshed = False
         while True:
@@ -176,7 +178,7 @@ class Transport:
                     raise TransportError(
                         f"{method} {url} failed after {attempt} attempts: {exc}"
                     ) from exc
-                self._sleep(self._backoff(attempt))
+                self.sleep(self._backoff(attempt))
                 continue
 
             self._note_allowance(response)
@@ -190,12 +192,12 @@ class Transport:
                     continue
             if isinstance(error, RetryableError) and error.retry_after is not None:
                 wait = max(error.retry_after, MIN_RETRY_AFTER)
-                if self._clock() - started + wait > self.config.max_retry_wait:
+                if self.clock() - started + wait > self.config.max_retry_wait:
                     raise error
-                self._sleep(wait)
+                self.sleep(wait)
                 continue
             if self._is_transient(error) and attempt < self.config.max_attempts:
-                self._sleep(self._backoff(attempt))
+                self.sleep(self._backoff(attempt))
                 continue
             raise error
 
@@ -242,7 +244,7 @@ class Transport:
                 if self._allowance_reset == reset:
                     self._allowance_reset = None
             return
-        if self._clock() - started + wait > self.config.max_retry_wait:
+        if self.clock() - started + wait > self.config.max_retry_wait:
             when = time.strftime("%Y-%m-%d %H:%M:%S %Z", time.localtime(reset))
             raise RateLimitError(
                 429,
@@ -250,4 +252,4 @@ class Transport:
                 f"your OpenGWAS allowance is used up until {when}",
                 retry_after=wait,
             )
-        self._sleep(wait)
+        self.sleep(wait)
