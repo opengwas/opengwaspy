@@ -13,7 +13,7 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 
 - **Site:** MkDocs Material 9.8.1 and mkdocstrings-python, in a `docs` dependency group. `mkdocs.yml` covers the home page, install, a reference page per module (generated from docstrings, Google style), and the changelog.
 - **`.github/workflows/docs.yml`:** builds with `--strict` on every PR. On pushes to `main` it uploads the site and deploys it with `actions/deploy-pages`. Actions are pinned to SHAs: upload-pages-artifact v5.0.0 `fc324d35`, deploy-pages v5.0.1 `368f8252`.
-- **Pages:** enabled with Source = GitHub Actions (`POST repos/opengwas/opengwaspy/pages`, `build_type=workflow`). The owner approved publishing the docs on Pages in the original brief.
+- **Pages:** the site is served at http://blog.opengwas.io/opengwaspy/, because the opengwas org Pages site has the custom domain `blog.opengwas.io`; `opengwas.github.io/opengwaspy` redirects there. Enabled with Source = GitHub Actions (`POST repos/opengwas/opengwaspy/pages`, `build_type=workflow`). The owner approved publishing the docs on Pages in the original brief.
 - **Risk:** Material for MkDocs says it reaches end of life on 5 May 2027, with Zensical as its successor (which reads `mkdocs.yml`). To revisit before then.
 - **Evidence:** `uv run mkdocs build --strict` passed locally. The jobs reference page renders its documented objects.
 

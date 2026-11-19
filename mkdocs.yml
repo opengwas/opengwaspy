@@ -1,6 +1,6 @@
 site_name: opengwaspy
 site_description: The Python client for the OpenGWAS Data API
-site_url: https://opengwas.github.io/opengwaspy/
+site_url: http://blog.opengwas.io/opengwaspy/
 repo_url: https://github.com/opengwas/opengwaspy
 repo_name: opengwas/opengwaspy
 edit_uri: edit/main/docs/
