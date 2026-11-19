@@ -24,3 +24,20 @@ def test_tophits_job_end_to_end(live_api: LiveAPI) -> None:
     # Resubmitting the same query returns the same job.
     again = Job.submit(transport, "api/tophits", {"analyses": [analysis], "limit": 5})
     assert again.query_hash == job.query_hash
+
+
+def test_run_many_in_order(live_api: LiveAPI) -> None:
+    from opengwaspy.batch import run_many
+
+    transport = Transport(Config(base_url=live_api.url, auth=DeveloperKey(live_api.token)))
+    analyses = json_body(transport.get("api/gwasinfo", params={"limit": 3}))["analyses"]
+    ids = [a["id"] for a in analyses]
+    frames = run_many(
+        transport,
+        [("api/tophits", {"analyses": [i], "limit": 3}) for i in ids],
+        max_in_flight=2,
+    )
+    assert len(frames) == len(ids)
+    for analysis_id, frame in zip(ids, frames, strict=True):
+        assert frame is not None
+        assert set(frame["analysis_id"]) <= {analysis_id.split(":", 1)[1]}
