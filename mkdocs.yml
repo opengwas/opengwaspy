@@ -26,9 +26,12 @@ theme:
 nav:
   - Home: index.md
   - Install: install.md
+  - Guide:
+      - Metadata: guide/metadata.md
   - Reference:
       - Client: reference/client.md
       - Service: reference/service.md
+      - Metadata: reference/metadata.md
       - Configuration: reference/config.md
       - Authentication: reference/auth.md
       - Jobs: reference/jobs.md
