@@ -110,6 +110,7 @@ class Client:
             transport = Transport(config)
         self.transport = transport
         self._status: dict[str, Any] | None = None
+        self._releases: dict[str, list[str]] | None = None
         self._lock = threading.Lock()
 
     @property
@@ -160,6 +161,18 @@ class Client:
             raise ProtocolError("/api/batches did not return a list of batches")
         frame: pd.DataFrame = pd.DataFrame.from_records(rows)
         return frame
+
+    def served_releases(self) -> dict[str, list[str]]:
+        """The release IDs the API serves, by Store ID (fetched once)."""
+        with self._lock:
+            cached = self._releases
+        if cached is None:
+            cached = {}
+            for row in self.batches().to_dict("records"):
+                cached.setdefault(str(row["store_id"]), []).append(str(row["release_id"]))
+            with self._lock:
+                self._releases = cached
+        return cached
 
     @property
     def limits(self) -> Limits:

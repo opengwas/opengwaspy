@@ -11,6 +11,7 @@ first use. Call :func:`configure` to change it.
 
 __version__ = "0.0.1.dev0"
 
+from opengwaspy.associations import associations, associations_analysis, associations_range
 from opengwaspy.auth import DeveloperKey, NoAuth, OpenGWASToken
 from opengwaspy.batch import BatchError, run_many
 from opengwaspy.client import Client, Limits, configure, get_client
@@ -53,6 +54,9 @@ __all__ = [
     "RequestError",
     "UnsupportedOptionError",
     "__version__",
+    "associations",
+    "associations_analysis",
+    "associations_range",
     "batches",
     "configure",
     "get_client",

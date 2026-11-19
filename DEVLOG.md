@@ -9,6 +9,24 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #30: associations
+
+- **`opengwaspy.associations(variants, analyses, observed_only, releases)`:** jobs split by the server's `lookup_analyses` (outer loop) and `lookup_variants` (inner), run through `query_many` and combined in that order.
+- **`associations_range(chromosome, start, end, analyses=None, ...)`:** windows of at most `range_span`, and groups of `range_analyses`. It strips a `chr` prefix and checks `1 <= start <= end` (integers).
+- **`associations_analysis(analyses)`:** groups of `analysis_analyses`.
+- **`p = 10 ** log10_p`** is inserted after `log10_p`.
+- **New helpers in `opengwaspy._common`:**
+  - `resolve_releases` takes a Store ID (looked up in `Client.served_releases()`, cached from `batches()`), `store/release`, or a dict;
+  - `combine` merges several jobs' frames, with `attrs` `job_ids`, `query_hashes`, the union of `releases`, and `metadata_by_job`;
+  - `run`, `chunks` and `as_list`.
+- **Tests:** `tests/fakes.JobServer` is a fake Data API that runs any submitted body as a job.
+- **Live (6433):**
+  - rs1171617 in OGS-00006:GCST90199621 gives log10_p −133.32, p 4.75e-134.
+  - Looking it up by its ALID gives the same row.
+  - The range 10:59,700,000–59,710,000 gives 56 rows.
+  - The `smoke_request` variant `1:512299:C:CCTGT` that `/api/batches` lists for OGS-00006 is not in GCST90199621, observed or imputed. Its smoke test only checks that the query runs. Not an opengwaspy bug.
+- **Evidence:** ruff and mypy are clean. `uv run pytest`: 150 passed, coverage 99% (`associations.py` 100%). `uv run pytest -m live --no-cov`: 12 passed.
+
 ## 2026-11-19 - #29: metadata
 
 - **`opengwaspy.gwasinfo(ids=None, releases=, release_set=, limit=, strict=, client=)`:**
