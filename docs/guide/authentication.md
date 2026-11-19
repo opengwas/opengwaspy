@@ -16,7 +16,7 @@ Each setting is taken from, in order: the arguments you pass, the environment, y
 ```python
 import opengwaspy as og
 
-og.configure(url="https://...", token="...")      # the default client
+og.configure(url="https://...", token="...")  # the default client
 client = og.Client(url="https://...", token="...")  # or a client of your own
 og.tophits("OGS-00006:GCST90199621", client=client)
 ```
