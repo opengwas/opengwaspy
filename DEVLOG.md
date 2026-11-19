@@ -9,6 +9,27 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #9: package skeleton
+
+- **`pyproject.toml`:**
+  - hatchling ≥ 1.27, with the version from `src/opengwaspy/__init__.py` (`0.0.1.dev0`);
+  - `requires-python >=3.10`; dependencies `httpx>=0.27` and `pandas>=2.0`;
+  - `license = "GPL-3.0-only"` (PEP 639) with `license-files`. `-only` rather than `-or-later` keeps relicensing in the copyright holder's hands, which suits dual licensing; for the owner to confirm.
+  - Dev group: ruff, mypy, pandas-stubs, pytest, pytest-cov and respx.
+  - Ruff rules E, F, W, I, B, UP, SIM, RUF and D (Google docstrings). mypy strict. pytest `--strict-markers`, with `-m "not live"` by default and coverage failing under 90% (branch coverage).
+- **Package:** `src/opengwaspy/__init__.py` and `py.typed`. `.python-version` is 3.12 for local development, and `uv.lock` is committed.
+- **Tests:**
+  - `tests/conftest.py` provides the `live_api` fixture. It reads `OPENGWAS_URL` and `OPENGWAS_TOKEN` from the environment, else from `.env` (live tests only). It never shows the token, and skips when unset.
+  - `tests/test_package.py`: the version, `py.typed`, `.env` parsing and precedence.
+  - `tests/test_live_smoke.py` (marked `live`): `/api/status` is ready, and the key is accepted.
+- **Evidence:**
+  - `uv run ruff format . && uv run ruff check .`: clean.
+  - `uv run mypy`: no issues in 5 files.
+  - `uv run pytest`: 5 passed, 2 deselected, coverage 100%, on Python 3.12.16. Also on 3.10 and 3.14 via `uv run --isolated --python <v> --group dev pytest`: 5 passed each.
+  - `uv run pytest -m live --no-cov`: 2 passed, against `http://host.lima.internal:6433`, `image_digest` `sha256:8e0f8a1c9d3acbbe1d30dbbf4190aeacb64d6b561332d096a00cbb92392c2730`. `/api/user`: `developer:opengwaspy`, allowance 5.
+  - `uv build`: the wheel's METADATA has `License-Expression: GPL-3.0-only`, `License-File: LICENSE`, `Requires-Python: >=3.10`; the wheel contains `opengwaspy/py.typed`.
+- **Developer key fixed** by the owner (6433 redeployed). The earlier 401 is resolved.
+
 ## 2026-11-19 - Board: Python client workstream, epics and first tickets
 
 - **The setup PR, opengwaspy#1, is merged** (`0308eb1`).
