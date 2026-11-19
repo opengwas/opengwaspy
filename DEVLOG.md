@@ -9,6 +9,23 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #61: gwasinfo_search
+
+- `opengwaspy.gwasinfo_search(q, match=, limit=100, store_id=, assigned_ancestry=, ancestry_category=, outcome_type=, trait_class=)` in `metadata.py`, as agreed by the owner (19 Nov 2026).
+  - It sends `POST api/gwasinfo/search`, leaving out filters that are `None`.
+  - It pages `contains` by `after` and `fulltext` by `offset`, stopping at `limit`; `limit=None` fetches every match.
+  - It warns when fetching more than 10,000 rows, and when a full-text search stops at the API's 10,000 offset cap.
+  - `attrs` holds `q`, `match`, `filters`, `total`, `release_id` and `catalog_version`.
+  - Errors arrive through the transport's existing mapping (`RequestError` with `invalid_query`, `query_too_broad` or `release_not_found`; `NotImplementedByServer` on 501). Bad arguments raise `ValueError` before any request.
+- Unit tests: 14 new in `tests/test_metadata.py`; `metadata.py` has 100% coverage.
+- Live tests: 2 new in `tests/test_live_metadata.py`; `uv run pytest -m live tests/test_live_metadata.py` gives 5 passed.
+  - Run against 6433, image `sha256:acc344c2b652d22d7cb872fdc6f4d77377b37addb7e6186bab5319021520ae60`.
+  - `gwasinfo_search('body mass index', limit=None)` returned 39 of 39.
+  - The fulltext query `bmi* OR "body mass index"` returned 5 of 90, best match first.
+  - With `store_id='OGS-00011'`, it returned 2 of 21.
+- Checks: ruff, mypy (strict), `pytest` (235 passed, 99.5% coverage) and `mkdocs build --strict` all pass.
+- An empty result is a DataFrame without columns, as `gwasinfo()` gives.
+
 ## 2026-11-19 - #60: planned search
 
 - The Data API now serves `GET`/`POST /api/gwasinfo/search` (ogdb-api `e82e820`, PR #152). Its schema is identical on ogdbapi-dev.mrcieu.ac.uk and on the host's 6433 (compared `openapi.json` on 19 Nov 2026).
