@@ -9,6 +9,18 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #60: planned search
+
+- The Data API now serves `GET`/`POST /api/gwasinfo/search` (ogdb-api `e82e820`, PR #152). Its schema is identical on ogdbapi-dev.mrcieu.ac.uk and on the host's 6433 (compared `openapi.json` on 19 Nov 2026).
+- Probed on 6433:
+  - `q=body mass index` returned 39 matches (paged by `next_after`);
+  - `q=a` returned 22,593 matches, with no `query_too_broad`;
+  - the fulltext query `bmi* AND locke` returned 0;
+  - the malformed query `bmi AND (` gave `400 invalid_query`.
+  - Rows have `/api/gwasinfo`'s columns plus `release_id`.
+- Filed epic #60 with #61 (`gwasinfo_search`) and #62 (docs; blocked by #61). On the board: Python client, Todo.
+- No compat function: neither ieugwaspy nor ieugwasr has search.
+
 ## 2026-11-19 - #55, #56: release workflow and checklist
 
 - **`.github/workflows/release.yml`,** run on `v*` tags:
