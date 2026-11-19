@@ -26,12 +26,15 @@ theme:
 nav:
   - Home: index.md
   - Install: install.md
+  - Quickstart: quickstart.md
   - Guide:
+      - Authentication: guide/authentication.md
       - Metadata: guide/metadata.md
       - Associations: guide/associations.md
       - Top hits and PheWAS: guide/tophits-phewas.md
       - Variants: guide/variants.md
       - LD: guide/ld.md
+      - Jobs and large queries: guide/jobs.md
   - Reference:
       - Client: reference/client.md
       - Service: reference/service.md

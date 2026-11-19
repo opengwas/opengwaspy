@@ -25,4 +25,4 @@ export OPENGWAS_URL=https://...      # the Data API, or the Gateway once it is l
 export OPENGWAS_TOKEN=...            # a Data API developer key
 ```
 
-See [Configuration](reference/config.md) for every setting, and the config file.
+See [Authentication](guide/authentication.md) for every setting, the config file, and the Gateway. Then try the [Quickstart](quickstart.md).
