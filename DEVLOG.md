@@ -9,6 +9,22 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #31: top hits and PheWAS
+
+- **`opengwaspy.tophits(analyses, threshold=5e-8, limit=1000, observed_only=False, releases=)`:**
+  - groups of analyses sized so that analyses × limit ≤ `result_rows`, and at most `lookup_analyses`;
+  - adds `p`; `attrs["truncated"]`, with a warning;
+  - the API's `unsupported_threshold` message already names the loosest tier and lists `indexed_thresholds`, so it passes through as a `RequestError`.
+- **`opengwaspy.phewas(variant, releases=None, analyses=, limit=1000, observed_only=True)`:**
+  - The API refuses a PheWAS without `releases` ("Malformed request"). By default the client uses every served release whose `capabilities.phewas` is not false, 10 per job (`releases` `maxItems` 10).
+  - `attrs` sums `total` and `returned` across jobs, with `truncated` and a warning.
+- **Housekeeping:** the default client is closed at exit (`atexit`), and the live fixtures close their clients (ResourceWarning seen in the live run).
+- **Live (6433):**
+  - Top hits of OGS-00006:GCST90199621 with `limit=3`: rs1171617, rs1171614 and rs1171615, one signal with \|z\| ≈ 24.6. `truncated` is true.
+  - `threshold=0.01` gives `unsupported_threshold`, with indexed tiers [5e-08, 5e-06, 0.0005].
+  - The PheWAS of rs1171617 over all 13 Stores took 2 jobs and 9.9 s: `total` 10,662, 1,002 returned.
+- **Evidence:** ruff and mypy are clean. `uv run pytest`: 160 passed, `hits.py` 100%. `uv run pytest -m live --no-cov`: 15 passed.
+
 ## 2026-11-19 - #30: associations
 
 - **`opengwaspy.associations(variants, analyses, observed_only, releases)`:** jobs split by the server's `lookup_analyses` (outer loop) and `lookup_variants` (inner), run through `query_many` and combined in that order.

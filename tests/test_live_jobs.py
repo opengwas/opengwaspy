@@ -11,8 +11,9 @@ from tests.conftest import LiveAPI
 pytestmark = pytest.mark.live
 
 
-def test_tophits_job_end_to_end(live_api: LiveAPI) -> None:
+def test_tophits_job_end_to_end(live_api: LiveAPI, request: pytest.FixtureRequest) -> None:
     transport = Transport(Config(base_url=live_api.url, auth=DeveloperKey(live_api.token)))
+    request.addfinalizer(transport.close)
     analysis = json_body(transport.get("api/gwasinfo", params={"limit": 1}))["analyses"][0]["id"]
     job = Job.submit(transport, "api/tophits", {"analyses": [analysis], "limit": 5})
     frame = job.to_frame()
@@ -26,10 +27,11 @@ def test_tophits_job_end_to_end(live_api: LiveAPI) -> None:
     assert again.query_hash == job.query_hash
 
 
-def test_run_many_in_order(live_api: LiveAPI) -> None:
+def test_run_many_in_order(live_api: LiveAPI, request: pytest.FixtureRequest) -> None:
     from opengwaspy.batch import run_many
 
     transport = Transport(Config(base_url=live_api.url, auth=DeveloperKey(live_api.token)))
+    request.addfinalizer(transport.close)
     analyses = json_body(transport.get("api/gwasinfo", params={"limit": 3}))["analyses"]
     ids = [a["id"] for a in analyses]
     frames = run_many(

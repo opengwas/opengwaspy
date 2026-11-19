@@ -1,5 +1,7 @@
 """Live association queries."""
 
+from collections.abc import Iterator
+
 import pytest
 
 from opengwaspy import Client
@@ -12,8 +14,9 @@ ANALYSIS = "OGS-00006:GCST90199621"  # Carnitine levels
 
 
 @pytest.fixture
-def client(live_api: LiveAPI) -> Client:
-    return Client(live_api.url, token=live_api.token)
+def client(live_api: LiveAPI) -> Iterator[Client]:
+    with Client(live_api.url, token=live_api.token) as client:
+        yield client
 
 
 def test_by_rsid_and_alid(client: Client) -> None:

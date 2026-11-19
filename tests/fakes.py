@@ -115,7 +115,7 @@ class JobServer:
         answer: Callable[[str, dict[str, Any]], list[dict[str, Any]]],
         *,
         limits: dict[str, int] | None = None,
-        batches: list[dict[str, str]] | None = None,
+        batches: list[dict[str, Any]] | None = None,
         metadata: Callable[[str, dict[str, Any]], dict[str, Any]] | None = None,
     ) -> None:
         import json

@@ -28,6 +28,7 @@ from opengwaspy.errors import (
     RequestError,
     UnsupportedOptionError,
 )
+from opengwaspy.hits import phewas, tophits
 from opengwaspy.jobs import Job, JobTimeout
 from opengwaspy.metadata import gwasinfo, gwasinfo_files
 from opengwaspy.service import batches, status, user
@@ -62,7 +63,9 @@ __all__ = [
     "get_client",
     "gwasinfo",
     "gwasinfo_files",
+    "phewas",
     "run_many",
     "status",
+    "tophits",
     "user",
 ]
