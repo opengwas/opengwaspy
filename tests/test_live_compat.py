@@ -32,3 +32,13 @@ def test_tophits_default_refused_then_answerable_clumping() -> None:
     assert 0 < len(leads) < len(hits)
     assert "rs1171617" in set(leads["rsid"])
     assert leads.iloc[0]["n"] == 8192
+
+
+def test_phewas_and_variant_helpers() -> None:
+    assert compat.variants_chrpos("10:59707424") == "rs1171617"
+    assert compat.variants_to_rsid(["rs1", "19:44908684"]) == ["rs1", "rs429358"]
+    frame = compat.phewas("10:59707424", pval=1e-20, batch=["OGS-00006"])
+    assert len(frame) > 0 and (frame["p"] <= 1e-20).all()
+    assert {"id", "trait", "beta", "n"} <= set(frame.columns) or {"id", "beta", "n"} <= set(
+        frame.columns
+    )

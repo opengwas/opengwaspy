@@ -9,6 +9,26 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #45: compat phewas and variant helpers
+
+- **`compat.phewas(variant, pval=1e-3, batch=[])`:**
+  - Accepts rsIDs, ALIDs or `chr:pos`. `chr:pos` is looked up first; an ambiguous position warns and uses the first variant.
+  - One native PheWAS per variant, filtered to `p <= pval` on the client.
+  - **Truncation:** when the PheWAS is truncated, it reruns one Store at a time with `limit` 10,000 (the API's maximum: 10,001 gives `400 invalid_request`). If a single Store is still truncated, it raises `UnsupportedOptionError`, because a filter cannot see rows that were never returned.
+  - **`batch`:** must be served Store IDs. OpenGWAS batches (`ieu-a`) are refused with the served list.
+- **`compat.variants_chrpos(chrpos)`:** the first rsID (warning if there are several), or `None`.
+- **`compat.variants_to_rsid(variants)`:** returns a new list (ieugwaspy changed its argument in place). A position with no rsID is kept, with a warning.
+- **First design, changed after the live run:** a single rerun of all Stores at 10,000 refused rs1171617, because its 10-Store job alone exceeded 10,000 rows (total 10,662). The per-Store rerun answers it. A p-value filter on the server would avoid fetching every association. That needs an ogdb-api issue; the owner was asked.
+- **Live (6433), `pval=1e-8` across every Store:**
+
+  | variant | associations | Stores | time |
+  |---|---|---|---|
+  | rs1171617 | 67 | 6 | 13.1 s |
+  | rs429358 | 658 | 8 | 17.4 s |
+
+  - For rs429358, FinnGen dementia's `log10_p` is below −308, so `p` is 0.0 (float underflow). The associations guide now says so.
+- **Evidence:** ruff and mypy are clean. `uv run pytest`: 209 passed, `compat/variants.py` 100%. Live compat tests: 3 passed.
+
 ## 2026-11-19 - #44: compat tophits with clumping
 
 - **`compat.tophits(id, pval=5e-8, preclumped=1, clump=1, bychr=0, r2=0.001, kb=10000, pop="EUR", force_server=False)`.**

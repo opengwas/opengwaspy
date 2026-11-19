@@ -31,6 +31,7 @@ from opengwaspy.compat.api import (
     user,
 )
 from opengwaspy.compat.hits import tophits
+from opengwaspy.compat.variants import phewas, variants_chrpos, variants_to_rsid
 
 __all__ = [
     "DERIVED",
@@ -39,8 +40,11 @@ __all__ = [
     "gwasinfo_files",
     "ieugwas_columns",
     "legacy_ids",
+    "phewas",
     "select_api",
     "status",
     "tophits",
     "user",
+    "variants_chrpos",
+    "variants_to_rsid",
 ]
