@@ -9,6 +9,14 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - CI failure merged to main, and fixed
+
+- **What happened:** PR #41 (#18, docs only) was merged with its "lint and types" job failing: https://github.com/opengwas/opengwaspy/actions/runs/44525938399.
+  - ruff 0.17 formats Python code blocks inside Markdown, and `ruff format` was not run for that docs-only change (two aligned comments in `docs/quickstart.md` and `docs/guide/jobs.md`).
+  - The merge went through because `main` has no branch protection, and the merge step did not check the result of the checks it had waited for.
+- **Fix:** `ruff format .` (3 docs files), in a follow-up PR.
+- **Process change:** `AGENTS.md` now says to merge only after checking that every check passed, and to run `ruff format` for docs changes too. Branch protection with required checks would enforce this; suggested to the owner.
+
 ## 2026-11-19 - #18: quickstart, authentication and jobs pages
 
 - **Pages:** `docs/quickstart.md`, `docs/guide/authentication.md` and `docs/guide/jobs.md`, with output captured live from 6433.

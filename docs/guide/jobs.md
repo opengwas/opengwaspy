@@ -18,9 +18,9 @@ import opengwaspy as og
 
 client = og.get_client()
 job = client.submit("api/tophits", {"analyses": ["OGS-00006:GCST90199621"], "limit": 10})
-job                     # Job('aa4c2a29-…', endpoint='/api/tophits', status='queued')
+job  # Job('aa4c2a29-…', endpoint='/api/tophits', status='queued')
 status = job.wait(timeout=600)
-status.metadata         # {'threshold': 5e-08, 'observed_only': False, 'total': 10, 'truncated': True}
+status.metadata  # {'threshold': 5e-08, 'observed_only': False, 'total': 10, 'truncated': True}
 frame = job.to_frame()
 ```
 

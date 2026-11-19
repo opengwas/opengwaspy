@@ -28,7 +28,7 @@ The strongest associations of one analysis, carnitine levels:
 
 ```python
 hits = og.tophits("OGS-00006:GCST90199621")
-len(hits)                                   # 557
+len(hits)  # 557
 hits[["rsid", "alid", "z", "p"]].head(3)
 ```
 
