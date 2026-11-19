@@ -1,5 +1,7 @@
 # opengwaspy
 
+[![tests](https://github.com/opengwas/opengwaspy/actions/workflows/tests.yml/badge.svg)](https://github.com/opengwas/opengwaspy/actions/workflows/tests.yml)
+
 The Python client for the [OpenGWAS](https://opengwas.io) Data API. It queries GWAS metadata, associations, top hits, PheWAS, variants and LD, and returns pandas DataFrames.
 
 opengwaspy succeeds [ieugwaspy](https://github.com/MRCIEU/ieugwaspy). It talks to the new, job-based Data API, and offers an ieugwaspy-compatible layer for existing code.
