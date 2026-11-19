@@ -37,13 +37,13 @@ Order: #2, then #3 and #6's skeleton, then #4, then #5. #7 starts its interface 
 - **Authentication:** a pluggable provider interface from the start, because the Gateway's user authentication workflow is not final (REQUIREMENTS §8).
 - **Licence:** GPLv3 (`LICENSE`), keeping scope for dual licensing. To keep that option open, every contribution must be licensable by the copyright holder: contributors agree to a contributor licence agreement or copyright assignment before a PR from outside the core team is merged (E1 ticket).
 - **Compat `tophits` default:** ieugwaspy's default clumping (r² 0.001 within 10 Mb) is refused with `LDRefusal`. The error explains that the LD Stores do not hold r² below `t_far` beyond `near_bp`, and recommends answerable settings: r² ≥ the store's `t_far` (about 0.03; AMR 0.063) with `kb=10000`, or any r² with `kb` ≤ `near_bp` (3,000 kb). It never clumps at other settings silently (E4).
+- **Contributor agreements** (owner, 19 Nov 2026; #11): the copyright holder is the University of Bristol. Harmony HA-CLA-I-Any (individuals) and HA-CLA-E-Any (entities), version 1.0, with outbound Option Five (any licence, and always the licence in use on the submission date). Media is also CC BY 4.0, and the governing law is England and Wales. Individuals sign by a PR comment (CLA Assistant Lite; signatures on the `cla-signatures` branch); entities sign on paper through the maintainers.
 - **Merging:** agents may merge their own PRs once checks pass, unless the PR makes a breaking change to the public API or needs human input.
 
 ## Open questions
 
 | Question | Waiting on | Affects |
 |---|---|---|
-| Contributor agreement for dual licensing (CLA text, tooling) | owner | #11 |
 | The Gateway's final user login flow (device flow, browser, API keys?) and token lifetime | opengwas-gateway | #7 |
 | Mapping from OpenGWAS IDs (`ieu-a-2`) and `batch` to Data API analyses and Stores | ogdb-api / Analysis Catalog | #5 |
 | rsID → ALID for LD queries: through `variants/rsid` per Store, or does the LD Store need its own lookup? (ogld#79) | ogdb-api | #5 |
