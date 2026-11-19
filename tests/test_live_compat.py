@@ -42,3 +42,14 @@ def test_phewas_and_variant_helpers() -> None:
     assert {"id", "trait", "beta", "n"} <= set(frame.columns) or {"id", "beta", "n"} <= set(
         frame.columns
     )
+
+
+def test_associations_with_an_aligned_proxy() -> None:
+    target = "10:59699398:T:TTAC"  # held by the EUR LD store, not by this analysis
+    frame = compat.associations([target, "rs1171617"], ["OGS-00006:GCST90199621"], r2=0.5)
+    proxy = frame[frame["proxy"]].iloc[0]
+    assert proxy["target_snp"] == target and proxy["proxy_r2"] >= 0.5
+    assert {proxy["ea"], proxy["nea"]} == {"T", "TTAC"}
+    # The lead G allele lowers carnitine; the target's T is in positive LD with it, so TTAC raises it.
+    assert (proxy["ea"] == "TTAC") == (proxy["beta"] > 0)
+    assert not frame[~frame["proxy"]].empty

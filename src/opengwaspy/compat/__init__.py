@@ -30,11 +30,13 @@ from opengwaspy.compat.api import (
     status,
     user,
 )
+from opengwaspy.compat.associations import associations
 from opengwaspy.compat.hits import tophits
 from opengwaspy.compat.variants import phewas, variants_chrpos, variants_to_rsid
 
 __all__ = [
     "DERIVED",
+    "associations",
     "get_jwt",
     "gwasinfo",
     "gwasinfo_files",
