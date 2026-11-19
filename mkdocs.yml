@@ -29,11 +29,13 @@ nav:
   - Guide:
       - Metadata: guide/metadata.md
       - Associations: guide/associations.md
+      - Top hits and PheWAS: guide/tophits-phewas.md
   - Reference:
       - Client: reference/client.md
       - Service: reference/service.md
       - Metadata: reference/metadata.md
       - Associations: reference/associations.md
+      - Top hits and PheWAS: reference/hits.md
       - Configuration: reference/config.md
       - Authentication: reference/auth.md
       - Jobs: reference/jobs.md

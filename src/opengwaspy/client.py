@@ -16,6 +16,7 @@ configured from the environment and the config file on first use. Call
 
 from __future__ import annotations
 
+import atexit
 import threading
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, fields
@@ -252,6 +253,13 @@ def configure(url: str | None = None, **kwargs: Any) -> Client:
     if old is not None:
         old.close()
     return client
+
+
+@atexit.register
+def _close_default() -> None:  # pragma: no cover - runs at interpreter exit
+    with _default_lock:
+        if _default is not None:
+            _default.close()
 
 
 def get_client() -> Client:

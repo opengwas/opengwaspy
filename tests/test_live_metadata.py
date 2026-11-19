@@ -1,5 +1,7 @@
 """Live metadata checks."""
 
+from collections.abc import Iterator
+
 import pytest
 
 from opengwaspy import Client, NotImplementedByServer
@@ -10,8 +12,9 @@ pytestmark = pytest.mark.live
 
 
 @pytest.fixture
-def client(live_api: LiveAPI) -> Client:
-    return Client(live_api.url, token=live_api.token)
+def client(live_api: LiveAPI) -> Iterator[Client]:
+    with Client(live_api.url, token=live_api.token) as client:
+        yield client
 
 
 def test_listing_and_lookup(client: Client) -> None:

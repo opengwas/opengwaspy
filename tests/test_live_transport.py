@@ -1,5 +1,7 @@
 """Live checks that the transport reads the real API's answers and errors."""
 
+from collections.abc import Iterator
+
 import pytest
 
 from opengwaspy.auth import DeveloperKey
@@ -12,8 +14,9 @@ pytestmark = pytest.mark.live
 
 
 @pytest.fixture
-def transport(live_api: LiveAPI) -> Transport:
-    return Transport(Config(base_url=live_api.url, auth=DeveloperKey(live_api.token)))
+def transport(live_api: LiveAPI) -> Iterator[Transport]:
+    with Transport(Config(base_url=live_api.url, auth=DeveloperKey(live_api.token))) as transport:
+        yield transport
 
 
 def test_user(transport: Transport) -> None:
