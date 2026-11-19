@@ -22,8 +22,9 @@ This file does not track status, so it never disagrees with the board. It keeps:
 | #6 **opengwaspy has a published documentation site** | MkDocs Material, user guide, API reference, executed examples, GitHub Pages deployment | #17, #18 | #2 (site skeleton); grows with #4, #5 |
 | #7 **opengwaspy works through the Gateway** | `/ogdb` prefix, OpenGWAS JWT provider, `X-Allowance-*` handling, the final login flow behind the auth interface, live tests through the Gateway | filed when the Gateway's auth is decided | #3; the Gateway's user auth workflow (opengwas-gateway) |
 | #8 **opengwaspy is released on PyPI** | versioning, changelog, trusted publishing, release checklist, ieugwaspy pointing to its successor | filed at release | #4, #5, #6; owner approval |
+| #60 **opengwaspy can find analyses by search** | `gwasinfo_search()` over the API's `/api/gwasinfo/search` (`contains` and FTS5 `fulltext`, filters, paging, typed errors); docs and examples. Proposed defaults in the epic: name `gwasinfo_search`, `limit=100`, POST | #61, #62 | #4; ogdb-api #141, #142 (served on 6433 since 19 Nov 2026) |
 
-Order: #2, then #3 and #6's skeleton, then #4, then #5. #7 starts its interface work in #3 (the auth provider, #12), and its integration waits on the Gateway. #8 last.
+Order: #2, then #3 and #6's skeleton, then #4, then #5. #60 any time after #4. #7 starts its interface work in #3 (the auth provider, #12), and its integration waits on the Gateway. #8 last.
 
 ## Decisions
 
