@@ -9,6 +9,17 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #29: metadata
+
+- **`opengwaspy.gwasinfo(ids=None, releases=, release_set=, limit=, strict=, client=)`:**
+  - **With IDs:** `POST /api/gwasinfo` in chunks of 1,000, in the order given. `not_found` and `retired` go in `attrs`, or raise `RequestError` with `strict`.
+  - **Without IDs:** pages through `GET /api/gwasinfo` with `after`/`next_after`, 1,000 at a time, up to `limit`. It warns above 10,000 analyses, and `attrs` has `total`.
+- **`gwasinfo_files(...)`:** `POST /api/gwasinfo/files`. Every served Store answers `501` (live, 19 Nov 2026), which raises `NotImplementedByServer`.
+- **Guide:** the first guide page, `docs/guide/metadata.md`, with real output from 6433.
+  - 38,152 analyses are served, with `catalog_version` `2b9d06d6f8b200d2`.
+  - `ieu-a-2` is `not_found`: OpenGWAS IDs are not Data API IDs. That is #5's open question on ID mapping.
+- **Evidence:** ruff and mypy are clean. `uv run pytest`: 133 passed, `metadata.py` 100%. Live: 2 passed (listing and lookup, order and `not_found`; files 501).
+
 ## 2026-11-19 - #28: client facade, service calls and API limits
 
 - **`opengwaspy.Client(url, token=, jwt=, profile=, auth=, config=, transport=, **options)`** holds a `Transport`.

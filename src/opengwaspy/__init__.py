@@ -28,6 +28,7 @@ from opengwaspy.errors import (
     UnsupportedOptionError,
 )
 from opengwaspy.jobs import Job, JobTimeout
+from opengwaspy.metadata import gwasinfo, gwasinfo_files
 from opengwaspy.service import batches, status, user
 
 __all__ = [
@@ -55,6 +56,8 @@ __all__ = [
     "batches",
     "configure",
     "get_client",
+    "gwasinfo",
+    "gwasinfo_files",
     "run_many",
     "status",
     "user",
