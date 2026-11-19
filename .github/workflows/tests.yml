@@ -43,8 +43,8 @@ jobs:
       # Unit tests only: the live tests need the API and a key, which CI does not have.
       - run: uv run pytest
 
-  build:
-    name: build
+  package:
+    name: package
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
