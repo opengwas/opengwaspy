@@ -30,6 +30,7 @@ from opengwaspy.compat.api import (
     status,
     user,
 )
+from opengwaspy.compat.hits import tophits
 
 __all__ = [
     "DERIVED",
@@ -40,5 +41,6 @@ __all__ = [
     "legacy_ids",
     "select_api",
     "status",
+    "tophits",
     "user",
 ]
