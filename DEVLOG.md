@@ -9,6 +9,23 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #44: compat tophits with clumping
+
+- **`compat.tophits(id, pval=5e-8, preclumped=1, clump=1, bychr=0, r2=0.001, kb=10000, pop="EUR", force_server=False)`.**
+- **Refusal (owner, 19 Nov 2026):** before any job runs, `clump_settings_answerable(r2, kb, store)` checks: window ≤ `near_bp`, or r² ≥ `t_far` and window ≤ `far_bp`. Otherwise it raises `UnsupportedOptionError`, suggesting:
+  - the caller's r² with `kb = near_bp` (3,000);
+  - or r² = `t_far` rounded up to 2 decimals (EUR 0.04, AMR 0.07) with `kb ≤ far_bp`;
+  - or `clump=0`.
+- **Clumping:** each analysis's hits (`limit` 10,000, strongest by |z|) are clumped with `ld_clump` (scores |z|) in the `pop` store, and only the leads are kept.
+  - Hits the LD store does not hold are dropped with a warning, as ieugwasr's clumping drops variants missing from its reference.
+  - Truncation warns that weaker independent signals may be missing.
+- **`preclumped`, `bychr` and `force_server`** are accepted and have no effect (documented). An unknown `pop` is refused, with the served ancestries listed.
+- **ieugwaspy columns:** `n` comes from `gwasinfo`'s `sample_size`; `beta = z × se`.
+- **Live (6433), OGS-00006:GCST90199621:**
+  - The default is refused, suggesting `r2=0.001, kb=3000` or `r2=0.04, kb=10000`.
+  - With `r2=0.001, kb=3000`: 557 hits, 110 not in the EUR store, 5 leads: rs1171617, rs274548, rs149235996, rs10994001 and rs10900223. `n` = 8192.
+- **Evidence:** ruff and mypy are clean. `uv run pytest`: 201 passed. Live compat tests: 2 passed.
+
 ## 2026-11-19 - #42: compat base
 
 - **`opengwaspy.compat`** (`import opengwaspy.compat as ieugwaspy`):
