@@ -44,8 +44,13 @@ Order: #2, then #3 and #6's skeleton, then #4, then #5. #7 starts its interface 
 
 | Question | Waiting on | Affects |
 |---|---|---|
-| The Gateway's final user login flow (device flow, browser, API keys?) and token lifetime | opengwas-gateway | #7 |
-| Mapping from OpenGWAS IDs (`ieu-a-2`) and `batch` to Data API analyses and Stores | ogdb-api / Analysis Catalog | #5 |
-| rsID → ALID for LD queries: through `variants/rsid` per Store, or does the LD Store need its own lookup? (ogld#79) | ogdb-api | #5 |
-| Will the API return `beta` and `n` in association rows? | ogdb-api | #4, #5 |
+| The Gateway's final user sign-in flow (device flow, browser, API keys?) and token lifetime | opengwas-gateway | #7 |
+| How OpenGWAS IDs (`ieu-a-2`, and the `batch` prefixes) map to Data API analyses. Today unserved IDs are reported, never dropped | ogdb-api / Analysis Catalog | #5 follow-up |
+| A p-value filter for PheWAS on the server. `compat.phewas` fetches every association and filters here, and refuses a Store holding more than 10,000 of a variant's associations | owner: file on ogdb-api? | `compat.phewas` |
+| Clumping well-powered analyses: more than 10,000 hits at 5e-8 (for example OGS-00011:GCST90179150), so `compat.tophits` clumps only the strongest 10,000, with a warning | owner: file on ogdb-api? | `compat.tophits` |
+| Branch protection on `main` (required checks), so a failed check cannot be merged | owner | all |
 | ieugwaspy's README and PyPI page pointing to opengwaspy | owner (MRCIEU repo) | #8 |
+
+Resolved on 19 Nov 2026:
+- **rsID → ALID for LD:** through `variants_rsid`, or the ALIDs association rows already carry (#33, #43).
+- **`beta` and `n`:** the API serves neither. `compat` derives `beta = z × se` (on the stored effect scale) and `n` from `gwasinfo`, documented as derived (#42).
