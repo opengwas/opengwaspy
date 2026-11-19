@@ -9,6 +9,18 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #28: client facade, service calls and API limits
+
+- **`opengwaspy.Client(url, token=, jwt=, profile=, auth=, config=, transport=, **options)`** holds a `Transport`.
+  - `status()`, `user()` and `batches()` (a DataFrame).
+  - `limits`: a `Limits` read from `/api/status` → `execution.limits` (`lookup_variants`, `lookup_analyses`, `range_span`, `range_analyses`, `analysis_analyses`, `result_rows`). Defaults are kept where a value is missing or not positive. The LD caps are fixed defaults from ogdb-api SPECIFICATION §9.3, because the API does not publish them.
+  - `image_digest`, from `/api/status`, cached once per client.
+  - `submit`, `job`, `query` and `query_many`. Results get `attrs["image_digest"]`.
+- **The default client:** `configure(...)` replaces it and closes the old one. `get_client()` creates it lazily from the environment and config file.
+- **Module level:** `opengwaspy.status()`, `user()` and `batches()`, each with an optional `client=`. The main classes and errors are exported from `opengwaspy`.
+- **Docs:** reference pages for the client and service. `site_url` and every doc link now point to https://blog.opengwas.io/opengwaspy/ (it serves over https; the org site enforces it).
+- **Evidence:** ruff and mypy are clean. `uv run pytest`: 121 passed, coverage 99%. `uv run pytest -m live --no-cov`: 8 passed on 6433. The live client test checks `user`, `limits`, `image_digest` and `batches`.
+
 ## 2026-11-19 - #17: documentation site skeleton
 
 - **Site:** MkDocs Material 9.8.1 and mkdocstrings-python, in a `docs` dependency group. `mkdocs.yml` covers the home page, install, a reference page per module (generated from docstrings, Google style), and the changelog.

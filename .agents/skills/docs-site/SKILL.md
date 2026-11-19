@@ -5,7 +5,7 @@ description: "Build, check, preview and deploy opengwaspy's MkDocs Material docu
 
 # Docs site
 
-The site is MkDocs Material with mkdocstrings (the API reference from docstrings). It is published at https://opengwas.github.io/opengwaspy/ by `.github/workflows/docs.yml` on pushes to `main`.
+The site is MkDocs Material with mkdocstrings (the API reference from docstrings). It is published at https://blog.opengwas.io/opengwaspy/ by `.github/workflows/docs.yml` on pushes to `main`.
 
 ## Build and check
 

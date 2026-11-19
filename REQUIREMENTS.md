@@ -118,7 +118,7 @@ Where the compat layer still differs from OpenGWAS (IDs, stores, available colum
 
 ## 9. Documentation
 
-A MkDocs Material site on GitHub Pages (`https://opengwas.github.io/opengwaspy/`), built and deployed by GitHub Actions from `main`:
+A MkDocs Material site on GitHub Pages (`https://blog.opengwas.io/opengwaspy/`), built and deployed by GitHub Actions from `main`:
 
 - Install, quickstart and authentication (direct now; the Gateway when live).
 - A user guide per area: metadata, associations, top hits, PheWAS, variants and LD, and jobs and large queries.
