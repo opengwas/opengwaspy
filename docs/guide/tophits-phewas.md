@@ -25,8 +25,8 @@ UserWarning: some analyses have more than 3 hits at p <= 5e-08; only the stronge
 !!! warning "Not clumped"
     These three hits are one signal: neighbouring variants in LD. The Data API does not
     LD-clump top hits. ieugwaspy's `tophits` clumped by default; the ieugwaspy-compatible
-    layer will do so through the LD operations, and the LD functions will let you clump
-    them yourself.
+    layer will do so through the LD operations, and [`ld_clump`](ld.md#clumping) lets you
+    clump them yourself.
 
 - **`threshold`** (default 5e-8) is exact. Each Store's index holds tiers up to 5e-4. A looser threshold raises `RequestError` with code `unsupported_threshold`, and `error.extra["indexed_thresholds"]` lists the tiers, for example `[5e-08, 5e-06, 0.0005]`.
 - **`limit`** (default 1,000) is per analysis, keeping the largest |z|. `attrs["truncated"]` says whether any analysis was cut, and opengwaspy warns when it was.

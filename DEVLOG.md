@@ -9,6 +9,30 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #33: LD
+
+- **`opengwaspy.ld`:**
+  - `ld_stores()`.
+  - `ld_matrix(alids, ancestry|store, fill)` and `ld_region(chromosome, centre, radius, ...)` return a square DataFrame of signed r, indexed by ALID, with `NaN` for pairs not held. `attrs` has `absent`, `variants` (the alleles), `t_far`, `near_bp`, `far_bp` and `store`. A matrix is never split; above `ld_matrix_alids` (500) it is refused locally.
+  - `ld_clump(alids, scores, r2=, kb=)`: required `r2` and `kb`; scores are checked locally (finite, ≥ 0, one each); never split.
+  - `ld_proxies` (chunks of 1,000) and `ld_reflookup` (chunks of 10,000) merge `absent` across jobs.
+  - Exactly one of `ancestry` or `store` is required (the API answers `invalid_query` otherwise).
+- **`LDRefusal`** now appends what the store answers: "This store answers r2 >= {t_far} with kb up to {far_bp}, or any r2 with kb up to {near_bp}". #5 (the compat `tophits` refusal) will reuse it.
+- **Live (6433), five LD Stores:**
+
+  | ancestry | n | t_far |
+  |---|---|---|
+  | EUR | 665 | 0.0319 |
+  | AFR | 608 | 0.0349 |
+  | EAS | 724 | 0.0292 |
+  | SAS | 672 | 0.0315 |
+  | AMR | 341 | 0.0632 |
+
+  - The rs1171617 signal's three top hits have r ≈ ±0.988 and form one clump (r² 0.1, 1,000 kb).
+  - Proxies of 10:59707424:G:T within 100 kb include 10:59708831:G:T (r² 0.984).
+  - r² 0.001 within 10,000 kb is refused (`threshold_below_t_far`), with the advice text.
+- **Evidence:** ruff and mypy are clean. `uv run pytest`: 179 passed, `ld.py` 99%. Live LD tests: 5 passed.
+
 ## 2026-11-19 - #32: variants
 
 - **`variants_rsid(rsids, releases=None)` and `variants_chrpos(positions, releases=None)`:**

@@ -172,6 +172,19 @@ class LDRefusal(RequestError):
         self.t_far: float | None = self.extra.get("t_far")
         self.near_bp: int | None = self.extra.get("near_bp")
         self.far_bp: int | None = self.extra.get("far_bp")
+        advice = self.answerable
+        if advice:
+            self.args = (f"{self.args[0]}. {advice}",)
+
+    @property
+    def answerable(self) -> str | None:
+        """What this store can answer instead, in clumping and proxy terms."""
+        if self.t_far is None or self.near_bp is None or self.far_bp is None:
+            return None
+        return (
+            f"This store answers r2 >= {self.t_far:.3g} with kb up to {self.far_bp // 1000:,}, "
+            f"or any r2 with kb up to {self.near_bp // 1000:,}"
+        )
 
 
 class AuthError(APIError):

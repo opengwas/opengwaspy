@@ -12,3 +12,4 @@
 - `tophits()` (not clumped; truncation warned) and `phewas()` (every PheWAS-capable release by default, 10 per job).
 - The default client is closed at interpreter exit.
 - `variants_rsid()` and `variants_chrpos()`, across every served Store by default.
+- LD: `ld_stores()`, `ld_matrix()` and `ld_region()` (square r matrices), `ld_clump()`, `ld_proxies()` and `ld_reflookup()`. `LDRefusal` says what the store can answer instead.

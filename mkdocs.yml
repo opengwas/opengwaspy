@@ -31,6 +31,7 @@ nav:
       - Associations: guide/associations.md
       - Top hits and PheWAS: guide/tophits-phewas.md
       - Variants: guide/variants.md
+      - LD: guide/ld.md
   - Reference:
       - Client: reference/client.md
       - Service: reference/service.md
@@ -38,6 +39,7 @@ nav:
       - Associations: reference/associations.md
       - Top hits and PheWAS: reference/hits.md
       - Variants: reference/variants.md
+      - LD: reference/ld.md
       - Configuration: reference/config.md
       - Authentication: reference/auth.md
       - Jobs: reference/jobs.md
