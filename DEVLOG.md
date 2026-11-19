@@ -9,6 +9,20 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #16: many jobs with bounded concurrency
+
+- **`opengwaspy.batch.run_many(transport, queries, max_in_flight, progress, raise_errors)`:**
+  - keeps at most `max_in_flight` jobs (default `Config.max_in_flight`, 4) queued or running;
+  - polls whichever job is due next, at the API's suggested interval;
+  - reads each result as soon as its job finishes;
+  - returns the frames in query order.
+- **Failures** (refused submissions, and failed jobs) are collected. With `raise_errors` (the default), `BatchError` comes at the end, with `errors` by position and every successful frame. Otherwise failed queries give `None`.
+- **Ctrl-C** cancels every job in flight, ignoring cancel errors, then re-raises.
+- **Reporting:** `Progress(done, failed, running, total)` after each query.
+- **Evidence:**
+  - `uv run pytest`: 108 passed, coverage 99%. A fake API tracks the jobs in flight; its peak was 2 with `max_in_flight=2`.
+  - `uv run pytest -m live --no-cov`: 7 passed on 6433, including 3 top-hits jobs with `max_in_flight=2`, returned in order.
+
 ## 2026-11-19 - #15: the job lifecycle
 
 - **`opengwaspy.jobs`:**
