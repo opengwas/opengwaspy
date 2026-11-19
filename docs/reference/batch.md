@@ -1,0 +1,3 @@
+# Many jobs
+
+::: opengwaspy.batch

@@ -1,0 +1,66 @@
+site_name: opengwaspy
+site_description: The Python client for the OpenGWAS Data API
+site_url: https://opengwas.github.io/opengwaspy/
+repo_url: https://github.com/opengwas/opengwaspy
+repo_name: opengwas/opengwaspy
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; University of Bristol. GPL-3.0-only.
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle: {icon: material/weather-night, name: Switch to dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle: {icon: material/weather-sunny, name: Switch to light mode}
+
+nav:
+  - Home: index.md
+  - Install: install.md
+  - Reference:
+      - Configuration: reference/config.md
+      - Authentication: reference/auth.md
+      - Jobs: reference/jobs.md
+      - Many jobs: reference/batch.md
+      - Errors: reference/errors.md
+      - Transport: reference/transport.md
+  - Changelog: changelog.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            show_signature_annotations: true
+            separate_signature: true
+            members_order: source
+            merge_init_into_class: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true
+
+validation:
+  links:
+    absolute_links: relative_to_docs
+    unrecognized_links: warn

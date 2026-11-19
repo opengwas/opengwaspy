@@ -1,0 +1,3 @@
+# Errors
+
+::: opengwaspy.errors
