@@ -28,10 +28,12 @@ nav:
   - Install: install.md
   - Guide:
       - Metadata: guide/metadata.md
+      - Associations: guide/associations.md
   - Reference:
       - Client: reference/client.md
       - Service: reference/service.md
       - Metadata: reference/metadata.md
+      - Associations: reference/associations.md
       - Configuration: reference/config.md
       - Authentication: reference/auth.md
       - Jobs: reference/jobs.md
