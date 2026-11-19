@@ -38,6 +38,8 @@ Order: #2, then #3 and #6's skeleton, then #4, then #5. #7 starts its interface 
 - **Licence:** GPLv3 (`LICENSE`), keeping scope for dual licensing. To keep that option open, every contribution must be licensable by the copyright holder: contributors agree to a contributor licence agreement or copyright assignment before a PR from outside the core team is merged (E1 ticket).
 - **Compat `tophits` default:** ieugwaspy's default clumping (r² 0.001 within 10 Mb) is refused with `LDRefusal`. The error explains that the LD Stores do not hold r² below `t_far` beyond `near_bp`, and recommends answerable settings: r² ≥ the store's `t_far` (about 0.03; AMR 0.063) with `kb=10000`, or any r² with `kb` ≤ `near_bp` (3,000 kb). It never clumps at other settings silently (E4).
 - **Contributor agreements** (owner, 19 Nov 2026; #11): the copyright holder is the University of Bristol. Harmony HA-CLA-I-Any (individuals) and HA-CLA-E-Any (entities), version 1.0, with outbound Option Five (any licence, and always the licence in use on the submission date). Media is also CC BY 4.0, and the governing law is England and Wales. Individuals sign by a PR comment (CLA Assistant Lite; signatures on the `cla-signatures` branch); entities sign on paper through the maintainers.
+- **Branch protection** (owner, 19 Nov 2026): `main` requires every CI check (lint and types, tests 3.10–3.14, package, docs, cla). No force pushes.
+- **PyPI** (owner, 19 Nov 2026): prepare the release machinery, but do not publish. The owner configures trusted publishing and tags the first release (#57).
 - **Merging:** agents may merge their own PRs once checks pass, unless the PR makes a breaking change to the public API or needs human input.
 
 ## Open questions
@@ -45,11 +47,11 @@ Order: #2, then #3 and #6's skeleton, then #4, then #5. #7 starts its interface 
 | Question | Waiting on | Affects |
 |---|---|---|
 | The Gateway's final user sign-in flow (device flow, browser, API keys?) and token lifetime | opengwas-gateway | #7 |
-| How OpenGWAS IDs (`ieu-a-2`, and the `batch` prefixes) map to Data API analyses. Today unserved IDs are reported, never dropped | ogdb-api / Analysis Catalog | #5 follow-up |
-| A p-value filter for PheWAS on the server. `compat.phewas` fetches every association and filters here, and refuses a Store holding more than 10,000 of a variant's associations | owner: file on ogdb-api? | `compat.phewas` |
-| Clumping well-powered analyses: more than 10,000 hits at 5e-8 (for example OGS-00011:GCST90179150), so `compat.tophits` clumps only the strongest 10,000, with a warning | owner: file on ogdb-api? | `compat.tophits` |
-| Branch protection on `main` (required checks), so a failed check cannot be merged | owner | all |
-| ieugwaspy's README and PyPI page pointing to opengwaspy | owner (MRCIEU repo) | #8 |
+| How OpenGWAS IDs (`ieu-a-2`, and the `batch` prefixes) map to Data API analyses. Today unserved IDs are reported, never dropped | opengwas/ogdb-api#147 | `compat` |
+| A p-value filter for PheWAS on the server. `compat.phewas` fetches every association and filters here, and refuses a Store holding more than 10,000 of a variant's associations | opengwas/ogdb-api#145 | `compat.phewas` |
+| Clumping well-powered analyses: more than 10,000 hits at 5e-8 (for example OGS-00011:GCST90179150), so `compat.tophits` clumps only the strongest 10,000, with a warning | opengwas/ogdb-api#146 | `compat.tophits` |
+| ieugwaspy's README and PyPI page pointing to opengwaspy | owner (MRCIEU repo) | #58 |
+| PyPI trusted publisher and the `pypi` environment; the first tag | owner | #57 |
 
 Resolved on 19 Nov 2026:
 - **rsID → ALID for LD:** through `variants_rsid`, or the ALIDs association rows already carry (#33, #43).

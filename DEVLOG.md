@@ -9,6 +9,19 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #55, #56: release workflow and checklist
+
+- **`.github/workflows/release.yml`,** run on `v*` tags:
+  - **build:** checks that the tag equals `v` + `__version__`, runs `uv build`, installs and imports the wheel, and uploads it;
+  - **publish:** environment `pypi`, `id-token: write`, `pypa/gh-action-pypi-publish` v1.14.3 (`7245906f`), using trusted publishing, no token;
+  - **github-release:** release notes from the changelog section; `--prerelease` for a, b and rc versions.
+  - Actions are pinned to SHAs, each release at least two weeks old (upload-artifact v7.0.2, download-artifact v8.0.2).
+- **`RELEASING.md`:** versions (`0.x` pre-releases until #7); prepare, tag (the owner), publish, verify and reopen; the one-time setup (#57); withdrawing (yank).
+- **Nothing is published.** That needs the trusted publisher and the `pypi` environment (#57, the owner) and a tag from the owner.
+- **Also today (the owner's answers):**
+  - Branch protection is on for `main`. Required checks: lint and types, tests 3.10–3.14, package, docs, cla. No force pushes or deletion; admins are not enforced. The jobs were renamed first (`package`, `docs`; #54), because both workflows had a job named `build`.
+  - Filed opengwas/ogdb-api#145 (a PheWAS p-value threshold), #146 (clumping well-powered analyses' top hits) and #147 (resolving OpenGWAS IDs and batches). They are linked from the WORKPLAN's open questions.
+
 ## 2026-11-19 - #46: migration guide and usage examples
 
 - **`docs/migrating.md`:** every ieugwaspy 1.0.6 function, with its compat and native equivalents and a status (same, differs, not available). Then why each differs: analysis IDs, top-hit clumping (the refusal text), proxies (the analysis's ancestry; HGDP + 1000 Genomes), PheWAS (filtered here, refused beyond 10,000 per Store), and columns (`beta`, `p`, `n` derived).
