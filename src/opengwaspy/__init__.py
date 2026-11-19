@@ -32,6 +32,7 @@ from opengwaspy.hits import phewas, tophits
 from opengwaspy.jobs import Job, JobTimeout
 from opengwaspy.metadata import gwasinfo, gwasinfo_files
 from opengwaspy.service import batches, status, user
+from opengwaspy.variants import variants_chrpos, variants_rsid
 
 __all__ = [
     "APIError",
@@ -68,4 +69,6 @@ __all__ = [
     "status",
     "tophits",
     "user",
+    "variants_chrpos",
+    "variants_rsid",
 ]
