@@ -9,6 +9,19 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #15: the job lifecycle
+
+- **`opengwaspy.jobs`:**
+  - `Job.submit(transport, endpoint, body)` raises `IgnoredFieldsError` if the API lists any `ignored_fields`, and keeps the query for resubmission. `Job.from_id` picks up a job for resumability.
+  - `status()`; `wait(timeout, progress, cancel_on_interrupt)` polls at the API's `poll_after_seconds` (the submission's first, with a 0.25 s floor) and raises `JobFailed` (with `error_kind` and `retryable`) or `JobTimeout` (the job keeps running). Ctrl-C cancels the job unless told not to.
+  - `cancel()`.
+  - `pages()` follows `next_cursor` until `final`, checking each page's SHA-256 over its UTF-8 `ndjson`.
+  - `rows()` resubmits once on `410 result_expired` and skips rows already returned, by `row_offset`.
+  - `to_frame()` gives a DataFrame with `attrs`: `job_id`, `query_hash`, `endpoint`, `release_id`, `releases`, `metadata`, `compute` and `retrieved`.
+- **`Transport.sleep` and `Transport.clock` are now public**, so jobs poll with the same injectable clock.
+- **Not yet in the provenance:** the API's `image_digest` (it is in `/api/status`, not in `JobStatus`). Planned with the client facade in #4.
+- **Evidence:** ruff and mypy are clean. `uv run pytest`: 102 passed, coverage 99.7%. `uv run pytest -m live --no-cov`: 6 passed against 6433 (`image_digest` `sha256:8e0f8a1c9d3acbbe1d30dbbf4190aeacb64d6b561332d096a00cbb92392c2730`), including a top-hits job end to end, where resubmitting returned the same `query_hash`.
+
 ## 2026-11-19 - #13, #14: transport, typed errors and retries
 
 - **`opengwaspy.errors`** maps every code in ogdb-api's `docs/gateway-contract.md`:
