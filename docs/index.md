@@ -6,8 +6,8 @@ It succeeds [ieugwaspy](https://github.com/MRCIEU/ieugwaspy). The new API runs e
 
 !!! warning "Pre-alpha"
     opengwaspy is under active development and not yet released. It covers every Data API
-    operation: metadata, associations, top hits, PheWAS, variants and LD. An
-    ieugwaspy-compatible layer, and support for the OpenGWAS Gateway, are coming. Progress is
+    operation (metadata, associations, top hits, PheWAS, variants and LD) and offers an
+    ieugwaspy-compatible layer. Support for the OpenGWAS Gateway's sign-in is coming. Progress is
     on the [project board](https://github.com/orgs/opengwas/projects/1) (Workstream: Python
     client).
 
@@ -21,5 +21,6 @@ It succeeds [ieugwaspy](https://github.com/MRCIEU/ieugwaspy). The new API runs e
 ## Next
 
 - [Install](install.md), then the [Quickstart](quickstart.md)
+- Coming from ieugwaspy? [Migrating](migrating.md) and the [Usage examples](examples.md)
 - The guide: [Metadata](guide/metadata.md), [Associations](guide/associations.md), [Top hits and PheWAS](guide/tophits-phewas.md), [Variants](guide/variants.md), [LD](guide/ld.md), [Jobs](guide/jobs.md)
 - The [reference](reference/client.md), generated from the code
