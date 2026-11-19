@@ -31,7 +31,7 @@ from opengwaspy.errors import (
 from opengwaspy.hits import phewas, tophits
 from opengwaspy.jobs import Job, JobTimeout
 from opengwaspy.ld import ld_clump, ld_matrix, ld_proxies, ld_reflookup, ld_region, ld_stores
-from opengwaspy.metadata import gwasinfo, gwasinfo_files
+from opengwaspy.metadata import gwasinfo, gwasinfo_files, gwasinfo_search
 from opengwaspy.service import batches, status, user
 from opengwaspy.variants import variants_chrpos, variants_rsid
 
@@ -65,6 +65,7 @@ __all__ = [
     "get_client",
     "gwasinfo",
     "gwasinfo_files",
+    "gwasinfo_search",
     "ld_clump",
     "ld_matrix",
     "ld_proxies",
