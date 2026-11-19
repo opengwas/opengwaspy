@@ -10,7 +10,7 @@ opengwaspy succeeds [ieugwaspy](https://github.com/MRCIEU/ieugwaspy). It talks t
 
 ## Documentation
 
-https://opengwas.github.io/opengwaspy/
+https://blog.opengwas.io/opengwaspy/
 
 Build it locally with `uv run --group docs mkdocs serve -a 127.0.0.1:8765`.
 

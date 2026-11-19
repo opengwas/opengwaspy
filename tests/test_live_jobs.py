@@ -41,3 +41,13 @@ def test_run_many_in_order(live_api: LiveAPI) -> None:
     for analysis_id, frame in zip(ids, frames, strict=True):
         assert frame is not None
         assert set(frame["analysis_id"]) <= {analysis_id.split(":", 1)[1]}
+
+
+def test_client_facade(live_api: LiveAPI) -> None:
+    from opengwaspy import Client
+
+    with Client(live_api.url, token=live_api.token) as client:
+        assert client.user()["role"] == "developer"
+        assert client.limits.lookup_variants >= 1
+        assert client.image_digest and client.image_digest.startswith("sha256:")
+        assert len(client.batches()) >= 1
