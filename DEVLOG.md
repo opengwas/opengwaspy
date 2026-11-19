@@ -9,6 +9,29 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #13, #14: transport, typed errors and retries
+
+- **`opengwaspy.errors`** maps every code in ogdb-api's `docs/gateway-contract.md`:
+  - `RequestError` (400, 404, 409, 410, 413, 422), with `ResultExpired` (`410 result_expired`) and `LDRefusal` (`422 ld_refusal`, carrying `reason`, `t_far`, `near_bp` and `far_bp`);
+  - `AuthError` (401, 403);
+  - `RateLimitError` (429) and `BusyError` (503), both `RetryableError` with `retry_after`;
+  - `NotImplementedByServer` (the plain-text `501 Not yet implemented`) and `ServerError`.
+  - Each carries `status`, `error`, `message`, `request_id` and `extra`; `detail` is skipped.
+  - Also `TransportError`, `ProtocolError`, `JobFailed` (`error_kind`, `retryable`), `IgnoredFieldsError` and `UnsupportedOptionError`.
+- **`opengwaspy.transport.Transport`:**
+  - JSON bodies; `User-Agent` and `X-API-Source: opengwaspy/<version>`; one `X-Request-ID` for every attempt of a call.
+  - **Retries:** 429/503 honour `Retry-After` (at least 1 s) within `max_retry_wait`. Transport errors and other 5xx back off exponentially with jitter (1, 2, 4… s, capped at 30 s; half fixed, half random) up to `max_attempts`.
+  - **401:** asks the auth provider to refresh once.
+  - **The Gateway's allowance:** after `X-Allowance-Remaining: 0`, calls wait until `X-Allowance-Reset` (Unix seconds, per opengwas-gateway `app/limiting/limiter.py`), or fail at once if that is beyond the budget.
+  - 4xx and 501 are never retried.
+- **Live shapes checked on 6433** (`image_digest` `sha256:8e0f8a1c…2c2730`):
+  - **Error body:** `{"error", "message", "detail"}`, with an `x-request-id` header. `501` is the plain text `Not yet implemented`.
+  - **A tophits job:** `202` with `Location`, `Retry-After: 1` and `X-OGDB-Cost-Estimate`. `JobAccepted` has `request_fingerprint` and `query_hash`, `poll_after_seconds` 0.27 and `ignored_fields` [].
+  - **The result page:** `schema`, `manifest`, `page_index`, `row_offset`, `row_count`, `byte_count`, `sha256`, `cursor`, `next_cursor`, `final` and `ndjson`.
+  - **The page's `sha256`** is the hex SHA-256 of the `ndjson` text encoded as UTF-8 (checked).
+  - **`log10_p` is log10(p), so negative** (−133.3 for the top hit). REQUIREMENTS §6 said `10 ** -log10_p`; corrected to `10 ** log10_p`.
+- **Evidence:** `uv run pytest`: 86 passed, coverage 99.8%. `uv run pytest -m live --no-cov`: 5 passed on 6433 (user role, `analysis_not_found` with a request ID, `501` for `variants/gene`).
+
 ## 2026-11-19 - #12: configuration and auth providers
 
 - **`opengwaspy.config`:**

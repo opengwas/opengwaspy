@@ -86,7 +86,7 @@ One function per operation. Each takes keyword arguments named as the Data API n
 
 - **Chunking.** Requests above an operation's per-job limit (for example 100 analyses and 1,000 variants for associations, 500 ALIDs for an LD matrix) are split into jobs within the limit and merged, preserving order. Where splitting would change the answer (for example clumping, or an LD matrix), the client refuses, rather than splitting.
 - **Large ranges.** `associations_range` splits a range into windows of at most 10 Mb (the API's limit for Dense and Hybrid analyses), and whole Dense or Hybrid analyses are fetched as ranges.
-- **Derived columns.** `p` is derived as `10 ** -log10_p`, and `beta` and `n` are added only when the API provides them. Each derived column is documented as derived.
+- **Derived columns.** `p` is derived as `10 ** log10_p` (the API's `log10_p` is log10 of p, so it is negative or zero), and `beta` and `n` are added only when the API provides them. Each derived column is documented as derived.
 
 ## 7. The ieugwaspy-compatible layer
 
