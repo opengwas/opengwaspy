@@ -9,6 +9,15 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #32: variants
+
+- **`variants_rsid(rsids, releases=None)` and `variants_chrpos(positions, releases=None)`:**
+  - Both validate locally (`rs<digits>`; `[chr]chrom:pos`, no ranges).
+  - Jobs are split by `lookup_variants` and by 10 releases.
+- **The default is to search every served release.** The ticket planned only to explain `409 release_selection_required` (which 6433 answers without `releases`: "an explicit release selection or analysis IDs are required"). Searching every Store instead gives the answer ieugwaspy users expect from an rsID lookup. Rows stay one per variant per Store, as the API returns them, and the docs show `drop_duplicates("alid")`.
+- **Live (6433):** rs1171617 and rs429358 in OGS-00006 map to 10:59707424:G:T and 19:44908684:C:T. `chr19:44908684` across every Store gives only rs429358 (2 jobs).
+- **Evidence:** ruff and mypy are clean. `uv run pytest`: 165 passed, `variants.py` 100%. Live variant tests: 2 passed.
+
 ## 2026-11-19 - #31: top hits and PheWAS
 
 - **`opengwaspy.tophits(analyses, threshold=5e-8, limit=1000, observed_only=False, releases=)`:**

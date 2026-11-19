@@ -11,3 +11,4 @@
 - `associations()`, `associations_range()` (10 Mb windows) and `associations_analysis()`, chunked within the API's published limits, with a derived `p` column.
 - `tophits()` (not clumped; truncation warned) and `phewas()` (every PheWAS-capable release by default, 10 per job).
 - The default client is closed at interpreter exit.
+- `variants_rsid()` and `variants_chrpos()`, across every served Store by default.
