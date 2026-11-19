@@ -107,8 +107,9 @@ Before closing a ticket that touches API behaviour, also run `uv run pytest -m l
 ## Git discipline
 
 - Work on a branch per ticket; open a PR into `main` with `Closes #n`. Commit directly to `main` only with the owner's approval.
+- Do not stack PRs on another PR's branch: merging with `--delete-branch` closes the stacked PR. Branch from `main`, or wait.
 - You may merge your own PR once its checks pass, unless it makes a breaking change to the public API or needs human input (a decision, a credential, a first publication). Then ask the owner.
-- Each commit has one purpose and passes the checks. Use the repository's configured git identity.
+- Each commit has one purpose and passes the checks. Use the repository's configured git identity: name `Claude -- t0mrg`, email t0mrg's GitHub noreply address, so that the CLA check links the commits to the allow-listed t0mrg (owner, 19 Nov 2026). Never change the CLA workflow's allow-list yourself.
 - Inspect the diff and status before committing: `git diff --check`, `git status --short`, then `git add <scoped files>`.
 - Never use destructive history operations unless explicitly requested.
 - Record commit hashes in `DEVLOG.md`.
