@@ -9,6 +9,27 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #11: contributor agreements
+
+- **Source:** the Harmony v1.0 templates `ha-cla-i-v1.odt` and `ha-cla-e-v1.odt` from https://www.harmonyagreements.org/agreements.html (fetched 19 Nov 2026; CC BY 3.0). Text was extracted from `content.xml` and filled in by a script, keeping only outbound Option Five (the "Any" variant).
+  - "We": the University of Bristol, for opengwaspy.
+  - Media licence: CC BY 4.0.
+  - Jurisdiction: England and Wales (the owner's instruction).
+  - Submission and non-owner instructions: `CLA.md`.
+  - The entity version keeps "or Your Affiliates"; the individual version drops it.
+  - No placeholder remains (the script asserts it).
+- **Files:**
+  - `cla/HA-CLA-I-Any.md` and `cla/HA-CLA-E-Any.md`;
+  - `CLA.md`, which says which agreement applies, how to sign, what to do with work you do not own, and that University of Bristol staff need no CLA;
+  - `CONTRIBUTING.md`;
+  - a README section.
+- **Enforcement:** `.github/workflows/cla.yml` runs CLA Assistant Lite (`contributor-assistant/github-action` v2.6.1, pinned to commit `ca4a40a7`).
+  - It runs on `pull_request_target` and on PR comments, and never checks out PR code.
+  - Signatures go to `signatures/version1/cla.json` on the orphan branch `cla-signatures` (created, `60bacac`).
+  - Allow-list: t0mrg and the bots. Other University of Bristol staff are added as they join.
+  - The workflow first runs on PRs opened after this merges, because `pull_request_target` uses the base branch's workflow.
+- **Not legal advice:** the University's legal or contracts office may want to review the filled-in agreements before external contributions arrive.
+
 ## 2026-11-19 - #9: package skeleton
 
 - **`pyproject.toml`:**
