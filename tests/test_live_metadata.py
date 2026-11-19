@@ -31,3 +31,8 @@ def test_listing_and_lookup(client: Client) -> None:
 def test_files_not_yet_served(client: Client) -> None:
     with pytest.raises(NotImplementedByServer):
         gwasinfo_files(client=client)
+
+
+def test_lookup_in_named_store(client: Client) -> None:
+    found = gwasinfo("GCST90199621", releases=["OGS-00006"], client=client)
+    assert list(found["id"]) == ["OGS-00006:GCST90199621"]

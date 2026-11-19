@@ -85,10 +85,10 @@ def test_lookup_in_order_with_not_found(client: Client) -> None:
             "retired": [],
         }
     )
-    frame = gwasinfo(["x", "nope"], releases=["OGS-1"], client=client)
+    frame = gwasinfo(["x", "nope"], releases=["OGS-1/r1"], client=client)
     assert json.loads(route.calls.last.request.content) == {
         "id": ["x", "nope"],
-        "releases": ["OGS-1"],
+        "releases": [{"store_id": "OGS-1", "release_id": "r1"}],
     }
     assert list(frame["id"]) == ["x"]
     assert frame.attrs["not_found"] == ["nope"]

@@ -11,6 +11,7 @@ from typing import Any
 
 import pandas as pd
 
+from opengwaspy._common import ReleaseLike, resolve_releases
 from opengwaspy.client import Client, get_client
 from opengwaspy.errors import ProtocolError, RequestError
 from opengwaspy.transport import json_body
@@ -37,12 +38,14 @@ def _as_list(ids: str | Iterable[str]) -> list[str]:
     return [v.strip() for v in values]
 
 
-def _selection(releases: Iterable[str] | None, release_set: str | None) -> dict[str, Any]:
+def _selection(
+    client: Client, releases: Iterable[ReleaseLike] | None, release_set: str | None
+) -> dict[str, Any]:
     if releases is not None and release_set is not None:
         raise ValueError("give releases or release_set, not both")
     selection: dict[str, Any] = {}
     if releases is not None:
-        selection["releases"] = list(releases)
+        selection["releases"] = resolve_releases(client, releases)
     if release_set is not None:
         selection["release_set"] = release_set
     return selection
@@ -57,7 +60,7 @@ def _object(body: Any, path: str) -> Mapping[str, Any]:
 def gwasinfo(
     ids: str | Iterable[str] | None = None,
     *,
-    releases: Iterable[str] | None = None,
+    releases: Iterable[ReleaseLike] | None = None,
     release_set: str | None = None,
     limit: int | None = None,
     strict: bool = False,
@@ -89,9 +92,13 @@ def gwasinfo(
         RequestError: With ``strict``, some IDs were not found or are retired.
     """
     client = client or get_client()
-    selection = _selection(releases, release_set)
     if ids is None:
-        return _list(client, selection, limit)
+        if releases is not None:
+            raise ValueError(
+                "listing takes release_set, not releases; pass ids to look up analyses"
+            )
+        return _list(client, _selection(client, None, release_set), limit)
+    selection = _selection(client, releases, release_set)
     wanted = _as_list(ids)
     rows: list[dict[str, Any]] = []
     not_found: list[str] = []
@@ -128,8 +135,6 @@ def _list(client: Client, selection: Mapping[str, Any], limit: int | None) -> pd
     if limit is not None and limit < 1:
         raise ValueError("limit must be at least 1")
     params: dict[str, Any] = dict(selection)
-    if "releases" in params:
-        raise ValueError("listing takes release_set, not releases; pass ids to look up analyses")
     rows: list[dict[str, Any]] = []
     after: str | None = None
     meta: Mapping[str, Any] = {}
@@ -163,7 +168,7 @@ def _list(client: Client, selection: Mapping[str, Any], limit: int | None) -> pd
 
 def gwasinfo_files(
     *,
-    releases: Iterable[str] | None = None,
+    releases: Iterable[ReleaseLike] | None = None,
     release_set: str | None = None,
     limit: int = 100,
     after: str | None = None,
@@ -186,7 +191,7 @@ def gwasinfo_files(
         NotImplementedByServer: The selected Stores do not record source files.
     """
     client = client or get_client()
-    body: dict[str, Any] = {"limit": limit, **_selection(releases, release_set)}
+    body: dict[str, Any] = {"limit": limit, **_selection(client, releases, release_set)}
     if after:
         body["after"] = after
     answer = json_body(client.transport.post("api/gwasinfo/files", body))

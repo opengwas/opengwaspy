@@ -9,6 +9,19 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #42: compat base
+
+- **`opengwaspy.compat`** (`import opengwaspy.compat as ieugwaspy`):
+  - **`status`, `user`.**
+  - **`select_api(key)`:** `public` → `gateway`; `dev`/`local` → `local`; a URL is accepted. It prints the choices for an unknown key, as ieugwaspy did.
+  - **`get_jwt()`:** opens the OpenGWAS profile page, reads the pasted token, and saves `jwt` with `config.save_setting` (mode 0600; a saved `token` is removed, because only one credential may be set). ieugwaspy wrote `.ieugwaspy.json` in the working directory.
+  - **`legacy_ids`.**
+  - **`gwasinfo(id)`:** adds `trait` (a copy of `analysis_label`) and prints the IDs not served.
+  - **`gwasinfo_files(id)`:** the Stores' source-file records (501 today).
+- **`compat.ieugwas_columns(frame, sample_sizes)`** puts ieugwaspy's names first: `id`, `trait`, `rsid`, `chr`, `position`, `ea`, `nea`, `eaf`, `beta`, `se`, `p`, `n`. The Data API's columns are kept. `compat.DERIVED` documents the derived ones: `beta = z × se` (on the analysis's `stored_effect_scale`), `p = 10 ** log10_p`, and `n = sample_size`.
+- **Bug fixed in #29's `gwasinfo` and `gwasinfo_files`:** `releases` was sent as plain Store IDs. The API wants `{store_id, release_id}` objects (live: `{"releases": ["OGS-00006"]}` → `400 invalid_request` "Malformed request"). They now use `resolve_releases`, like every query function. A live test of `gwasinfo(..., releases=["OGS-00006"])` was added.
+- **Evidence:** ruff and mypy are clean. `uv run pytest`: 189 passed, coverage 99%. Live: the metadata tests (3) and the compat test pass.
+
 ## 2026-11-19 - CI failure merged to main, and fixed
 
 - **What happened:** PR #41 (#18, docs only) was merged with its "lint and types" job failing: https://github.com/opengwas/opengwaspy/actions/runs/44525938399.
