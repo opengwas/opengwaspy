@@ -50,6 +50,6 @@ def test_associations_with_an_aligned_proxy() -> None:
     proxy = frame[frame["proxy"]].iloc[0]
     assert proxy["target_snp"] == target and proxy["proxy_r2"] >= 0.5
     assert {proxy["ea"], proxy["nea"]} == {"T", "TTAC"}
-    # The lead G allele lowers carnitine; the target's T is in positive LD with it, so TTAC raises it.
+    # The lead G lowers carnitine; the target T is in positive LD with G, so TTAC raises it.
     assert (proxy["ea"] == "TTAC") == (proxy["beta"] > 0)
     assert not frame[~frame["proxy"]].empty

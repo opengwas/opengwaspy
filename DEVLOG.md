@@ -9,6 +9,23 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-19 - #43: compat associations with LD proxies
+
+- **`compat.associations(variant, id, proxies=1, r2=0.8, align_alleles=1, palindromes=1, maf_threshold=0.3)`.**
+- **Inputs:** rsIDs, ALIDs, `chr:pos` (looked up to ALIDs), and `chr:start-end` ranges (through `associations_range`, with no proxies).
+- **Proxies:**
+  - For each (analysis, variant) with no direct row, the target's ALID is the query itself, or the first ALID of its rsID (with a warning when there are several).
+  - Candidates come from `ld_proxies(r2=r2)` in the LD store of the analysis's `assigned_ancestry`, falling back to EUR with a warning when no store serves that ancestry.
+  - All candidates are looked up in one `associations` call per ancestry. The best usable proxy is taken by r² (descending), then distance.
+- **Palindromes (A/T, C/G):** `palindromes=0` never uses one; `palindromes=1` uses one only when its MAF (from `eaf`) is below `maf_threshold`.
+- **Allele alignment:** positive r pairs the first alleles of the two ALIDs, and negative r crosses them, so the proxy's effect allele is mapped to the target allele it tags.
+  - This was checked on 6433: 10:59709780:C:T (r −0.988 with the target 10:59707424:G:T) aligns to G with z ≈ −24.6, the target's own −24.64.
+  - The effect allele was the ALID's first allele in 200 of 200 hits checked, but the code does not rely on that.
+- **Proxy rows:** `proxy`, `target_snp`, `proxy_snp`, `proxy_r2`, `target_a1`, `target_a2`, `proxy_a1` and `proxy_a2`. Their `rsid`, `alid` and position are the proxy's.
+- **Live:** 10:59699398:T:TTAC is held by the EUR store but not by OGS-00006:GCST90199621. Its proxy rs2126776 (10:59697708:G:T, r = −1) is aligned to TTAC with beta +0.38. That is consistent with r(T, lead G) = +0.81 and the lead's beta −0.44.
+- **The first push failed CI:** a line-length error in a live test. A chained command committed despite the local `ruff check` failure, and `safe_merge` refused to merge. The fix was a follow-up commit.
+- **Evidence:** ruff and mypy are clean. `uv run pytest`: 219 passed, `compat/associations.py` 99%. Live compat tests: 4 passed.
+
 ## 2026-11-19 - #45: compat phewas and variant helpers
 
 - **`compat.phewas(variant, pval=1e-3, batch=[])`:**
