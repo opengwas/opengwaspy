@@ -24,6 +24,20 @@ og.user()
 
 ## 3. Ask a question
 
+Find an analysis:
+
+```python
+found = og.gwasinfo_search("carnitine", match="fulltext", store_id="OGS-00006", limit=3)
+found[["id", "analysis_label"]]
+```
+
+```text
+                    id                analysis_label
+OGS-00006:GCST90199621              Carnitine levels
+OGS-00006:GCST90200791   Creatine to carnitine ratio
+OGS-00006:GCST90200805 Spermidine to carnitine ratio
+```
+
 The strongest associations of one analysis, carnitine levels:
 
 ```python

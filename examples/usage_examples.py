@@ -10,8 +10,6 @@ in the documentation's "Usage examples" page.
 
 from __future__ import annotations
 
-import warnings
-
 import pandas as pd
 
 import opengwaspy as og
@@ -25,13 +23,9 @@ def main() -> dict[str, pd.DataFrame]:
     """Run every example; return the tables they make."""
     out: dict[str, pd.DataFrame] = {}
 
-    # Exploring available studies: every analysis's metadata, one row each.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")  # "listing all ... analyses" is expected here
-        studies = og.gwasinfo()
-    print(f"{len(studies):,} analyses")
-    label = studies["analysis_label"].fillna("")
-    bmi = studies[label.str.contains("body mass", case=False)]
+    # Exploring available studies: search the analyses' labels.
+    bmi = og.gwasinfo_search("body mass", limit=None)
+    print(f"{len(bmi):,} analyses")
     print(bmi[["id", "analysis_label", "assigned_ancestry", "sample_size"]].head())
     out["bmi"] = bmi
 

@@ -9,6 +9,35 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-20 - #62: search documentation
+
+- `docs/guide/metadata.md` has a new "Find analyses" section, covering:
+  - `contains` and its filters;
+  - full-text syntax, with a table;
+  - `limit`, the 10,000-row warning and the full-text cap;
+  - the `invalid_query` and `query_too_broad` errors.
+- `docs/migrating.md`: search replaces "list everything and filter in pandas", and the function table has a `gwasinfo_search` row.
+- `docs/quickstart.md`: a search step. `docs/changelog.md`: an Unreleased entry.
+- `examples/usage_examples.py` and `docs/examples.md`: "Exploring available studies" now uses `gwasinfo_search("body mass", limit=None)`, which makes 1 request where listing took about 40. The search returns the same 39 analyses in label order, and the downstream example (OGS-00011:GCST90179150, 118 independent hits) is unchanged.
+- Every output in the docs comes from the live API at 6433 on 20 Nov 2026. I ran each full-text syntax row in the guide; none errored, and the totals were:
+
+  | Query | Total |
+  |---|---|
+  | `obesity asthma` | 1 |
+  | `bmi OR obesity` | 96 |
+  | `"body mass" NOT waist` | 38 |
+  | `(bmi OR obes*) AND diabetes` | 1 |
+  | `obes*` | 24 |
+  | `first_author:loh` | 47 |
+  | `"ukb-b-19953"` | 1 |
+  | `bmi` | 74 |
+  | `bmi*` | 75 |
+
+- Checks:
+  - ruff, mypy, `pytest` (235 passed) and `mkdocs build --strict` pass;
+  - `pytest -m live tests/test_live_examples.py tests/test_live_metadata.py --no-cov` gives 6 passed;
+  - the examples script took 36 s.
+
 ## 2026-11-19 - #61: gwasinfo_search
 
 - `opengwaspy.gwasinfo_search(q, match=, limit=100, store_id=, assigned_ancestry=, ancestry_category=, outcome_type=, trait_class=)` in `metadata.py`, as agreed by the owner (19 Nov 2026).
