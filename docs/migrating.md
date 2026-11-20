@@ -26,6 +26,7 @@ Either way, results are pandas DataFrames, not JSON. The compat functions put ie
 | `status()` | `status()` | `og.status()` | Differs: the Data API's own status fields |
 | `user()` | `user()` | `og.user()` | Differs: the Data API's view of you (`role`, `tier`) |
 | `gwasinfo(id=[])` | `gwasinfo(id)`: adds `trait` | `og.gwasinfo(ids)` | Differs: IDs (see below) and columns |
+| — | — | `og.gwasinfo_search(q)` | New: find analyses by label, or by a full-text query |
 | `gwasinfo_files(id)` | `gwasinfo_files(id)` | `og.gwasinfo_files()` | Not available: no download links; no Store records its source files yet |
 | `associations(variant, id, proxies=1, r2=0.8, align_alleles=1, palindromes=1, maf_threshold=0.3)` | same signature; proxies come from the LD stores | `og.associations(variants, analyses)` (no proxies) | Same, with proxies from a different reference panel (HGDP + 1000 Genomes) |
 | `tophits(id, pval=5e-8, clump=1, r2=0.001, kb=10000, pop="EUR", ...)` | same signature | `og.tophits(analyses)` (not clumped), then `og.ld_clump` | **Differs: the default clumping is refused** (below) |
@@ -38,12 +39,14 @@ Either way, results are pandas DataFrames, not JSON. The compat functions put ie
 
 ### Analysis IDs
 
-OpenGWAS IDs such as `ieu-a-2` or `ukb-b-19953` are not all Data API IDs. A Data API analysis ID is `<store>:<analysis>`, for example `OGS-00009:ukb-b-19953`; the bare `ukb-b-19953` also works when only one Store holds it. IDs that are not served are listed in `attrs["not_found"]` (and printed by `compat.gwasinfo`), never dropped silently. To find analyses, search `og.gwasinfo()` by label:
+OpenGWAS IDs such as `ieu-a-2` or `ukb-b-19953` are not all Data API IDs. A Data API analysis ID is `<store>:<analysis>`, for example `OGS-00009:ukb-b-19953`; the bare `ukb-b-19953` also works when only one Store holds it. IDs that are not served are listed in `attrs["not_found"]` (and printed by `compat.gwasinfo`), never dropped silently. To find analyses, search for them, rather than listing all of them with `gwasinfo()` and filtering in pandas:
 
 ```python
-studies = og.gwasinfo()
-studies[studies.analysis_label.str.contains("body mass", case=False)]
+og.gwasinfo_search("body mass", assigned_ancestry="EUR")
+og.gwasinfo_search('"ukb-b-19953"', match="fulltext")  # an old ID, if a Store holds it
 ```
+
+See [Metadata: find analyses](guide/metadata.md#find-analyses).
 
 How every old ID maps to the new ones is still being decided.
 

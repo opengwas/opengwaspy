@@ -1,6 +1,6 @@
 # Usage examples
 
-ieugwaspy's usage notebook, rewritten for opengwaspy. The whole script is [`examples/usage_examples.py`](https://github.com/opengwas/opengwaspy/blob/main/examples/usage_examples.py). The output below is from a run against the Data API on 19 Nov 2026; the script took 38 s.
+ieugwaspy's usage notebook, rewritten for opengwaspy. The whole script is [`examples/usage_examples.py`](https://github.com/opengwas/opengwaspy/blob/main/examples/usage_examples.py). The output below is from runs against the Data API on 19 and 20 Nov 2026; the script took 36 s.
 
 ```python
 import opengwaspy as og
@@ -9,22 +9,23 @@ import opengwaspy.compat as ieugwaspy
 
 ## Exploring available studies
 
-`gwasinfo()` with no IDs lists every analysis, one row each. Search it with pandas:
+Search the analyses' labels with `gwasinfo_search`; `limit=None` returns every match:
 
 ```python
-studies = og.gwasinfo()  # 38,152 analyses
-bmi = studies[studies.analysis_label.fillna("").str.contains("body mass", case=False)]
+bmi = og.gwasinfo_search("body mass", limit=None)  # 39 analyses
 bmi[["id", "analysis_label", "assigned_ancestry", "sample_size"]].head()
 ```
 
 ```text
-                          id                                    analysis_label assigned_ancestry  sample_size
-2744   OGS-00009:ukb-b-19953                             Body mass index (BMI)               EUR       461460
-2878    OGS-00009:ukb-b-2303                             Body mass index (BMI)               EUR       454884
-4070    OGS-00011:GCST006802                                   Body mass index               EUR       119688
-4176    OGS-00011:GCST012226  Waist circumference adjusted for body mass index               EUR       186825
-4616  OGS-00011:GCST90020029  Waist circumference adjusted for body mass index               EUR       219872
+                       id   analysis_label assigned_ancestry  sample_size
+0    OGS-00011:GCST006802  Body mass index               EUR       119688
+1  OGS-00011:GCST90025994  Body mass index               EUR       457756
+2  OGS-00011:GCST90029007  Body mass index               EUR       532396
+3  OGS-00011:GCST90302889  Body mass index               EUR       365498
+4  OGS-00011:GCST90429765  Body mass index               EUR        87908
 ```
+
+ieugwaspy listed every study with `gwasinfo()` for you to filter. `og.gwasinfo()` still lists all 38,152 analyses, but it takes about 40 requests; searching takes one. See [Metadata: find analyses](guide/metadata.md#find-analyses) for full-text queries and filters.
 
 ## Top hits for one study, clumped
 
