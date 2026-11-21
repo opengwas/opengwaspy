@@ -49,6 +49,76 @@ def test_tophits_truncation_warns(client: Client) -> None:
     assert frame.attrs["truncated"] is True and frame.attrs["total"] == 5
 
 
+def clump_meta(endpoint: str, body: dict[str, Any]) -> dict[str, Any]:
+    n = len(body["analyses"])
+    return {
+        "total": n,
+        "truncated": False,
+        "clump": {
+            "r2": body["clump"].get("r2", 0.001),
+            "kb": body["clump"].get("kb", 3000.0),
+            "hits": 100 * n,
+            "leads": n,
+            "absent": 7,
+            "ld_stores": {"EUR": "eur-k10"} if body["analyses"][0] == "a" else {"AFR": "afr-k10"},
+        },
+    }
+
+
+@respx.mock
+def test_tophits_clump_defaults_sent_and_metadata_combined(client: Client) -> None:
+    server = JobServer(
+        BASE, hits, metadata=clump_meta, limits={"result_rows": 2000, "lookup_analyses": 100}
+    )
+    frame = tophits(["a", "b", "c"], clump=True, client=client)
+    assert [b["clump"] for _, b in server.bodies] == [{}, {}]  # the server's defaults
+    assert frame.attrs["clump"] == {
+        "r2": 0.001,
+        "kb": 3000.0,
+        "hits": 300,
+        "leads": 3,
+        "absent": 14,
+        "ld_stores": {"EUR": "eur-k10", "AFR": "afr-k10"},
+    }
+
+
+@respx.mock
+def test_tophits_clump_settings(client: Client) -> None:
+    server = JobServer(BASE, hits, metadata=clump_meta)
+    frame = tophits(
+        "a", clump={"r2": 0.01, "kb": 1000, "ancestry": "EUR", "store": None}, client=client
+    )
+    assert server.bodies[0][1]["clump"] == {"r2": 0.01, "kb": 1000, "ancestry": "EUR"}
+    assert frame.attrs["clump"]["r2"] == 0.01
+
+
+@respx.mock
+def test_tophits_without_clump_sends_none(client: Client) -> None:
+    server = JobServer(BASE, hits)
+    frame = tophits("a", client=client)
+    assert "clump" not in server.bodies[0][1] and "clump" not in frame.attrs
+
+
+@respx.mock
+def test_tophits_clumped_truncation_says_leads(client: Client) -> None:
+    JobServer(BASE, hits, metadata=truncated_meta)
+    with pytest.warns(UserWarning, match="more than 10 clumped leads"):
+        tophits("a", limit=10, clump=True, client=client)
+
+
+@pytest.mark.parametrize(
+    ("clump", "msg"),
+    [
+        ({"r2": 0.1, "window": 5}, "unknown clump settings window"),
+        ({"ancestry": "EUR", "store": "x"}, "not both"),
+        ("yes", "clump must be"),
+    ],
+)
+def test_tophits_clump_validation(client: Client, clump: Any, msg: str) -> None:
+    with pytest.raises(ValueError, match=msg):
+        tophits("a", clump=clump, client=client)
+
+
 @pytest.mark.parametrize(
     ("kw", "msg"),
     [({"threshold": 0}, "between"), ({"threshold": 1}, "between"), ({"limit": 0}, "at least")],

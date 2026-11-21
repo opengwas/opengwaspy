@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `tophits(clump=...)`: clump every hit on the server and return the leads, with `clump_size`, and the clump's counts in `attrs["clump"]`.
+- `compat.tophits` clumps on the server, from every hit. It used to clump only the strongest 10,000 hits on the client (OGS-00011:GCST90179150, BMI: 770 leads now, 118 before).
 - **Breaking:** `phewas()` now takes `threshold`, applied on the server, and defaults to the Data API's p ≤ 1e-8. It used to return every association; pass `threshold=1` for that. `attrs["threshold"]` records the threshold applied.
 - `compat.phewas(pval=...)` sends `pval` to the server, so it no longer fetches every association, reruns truncated Stores, or refuses Stores holding more than 10,000 of a variant's associations.
 - Package skeleton, CI on Python 3.10–3.14, GPL-3.0-only with Harmony contributor agreements.

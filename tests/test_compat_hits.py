@@ -70,25 +70,28 @@ def default_client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(client_module, "_default", fake_client(BASE))
 
 
+LEADS = {"rs1": 2, "rs3": 1}  # the server's clumping: rs2 joins rs1; rs4 is not in the LD store
+
+
 def answer(endpoint: str, body: dict[str, Any]) -> list[dict[str, Any]]:
-    if endpoint.endswith("tophits"):
+    if not endpoint.endswith("tophits"):
+        return []
+    if body.get("clump") is None:
         return HITS
-    # Clump: 1:200 joins 1:100's clump; 1:900 leads its own; 9:9 is not in the store.
-    leads = {"1:100:A:G": "1:100:A:G", "1:200:C:T": "1:100:A:G", "1:900:G:T": "1:900:G:T"}
-    return [
-        {"alid": a, "lead": leads[a], "r": 1.0, "score": s}
-        for a, s in zip(body["alids"], body["scores"], strict=True)
-        if a in leads
-    ]
+    return [{**h, "clump_size": LEADS[h["rsid"]]} for h in HITS if h["rsid"] in LEADS]
 
 
 def meta(endpoint: str, body: dict[str, Any]) -> dict[str, Any]:
-    if endpoint.endswith("clump"):
-        return {"absent": [a for a in body["alids"] if a.startswith("9:")]}
-    return {
-        "total": 4,
-        "truncated": endpoint.endswith("tophits") and body.get("limit") == 10_000 and False,
-    }
+    out: dict[str, Any] = {"total": 4, "truncated": False}
+    if body.get("clump") is not None:
+        out["clump"] = {
+            **body["clump"],
+            "hits": 4,
+            "leads": 2,
+            "absent": 1,
+            "ld_stores": {"EUR": "eur-k10"},
+        }
+    return out
 
 
 def serve(truncated: bool = False) -> JobServer:
@@ -135,24 +138,21 @@ def test_amr_suggests_its_own_t_far() -> None:
 
 
 @respx.mock
-def test_clumped_leads_with_old_columns() -> None:
+def test_clumped_on_the_server_with_old_columns() -> None:
     server = serve()
-    with pytest.warns(UserWarning, match="1 hits are not in the EUR LD store"):
+    with pytest.warns(UserWarning, match="1 hits are not in the EUR LD store, so were not clumped"):
         frame = compat.tophits("OGS-1:A", r2=0.001, kb=3000)
-    endpoints = [e for e, _ in server.bodies]
-    assert endpoints == ["/api/tophits", "/api/ld/clump"]
-    tophits_body = server.bodies[0][1]
-    assert tophits_body["limit"] == 10_000 and tophits_body["threshold"] == 5e-8
-    clump_body = server.bodies[1][1]
-    assert clump_body["store"] == "eur-k10" and clump_body["scores"] == [9.0, 8.0, 6.0, 7.0]
-    assert (clump_body["r2"], clump_body["kb"]) == (0.001, 3000)
-    assert list(frame["rsid"]) == ["rs1", "rs3"]
+    assert [e for e, _ in server.bodies] == ["/api/tophits"]  # one job, clumped on the server
+    body = server.bodies[0][1]
+    assert body["limit"] == 10_000 and body["threshold"] == 5e-8
+    assert body["clump"] == {"r2": 0.001, "kb": 3000, "store": "eur-k10"}
+    assert list(frame["rsid"]) == ["rs1", "rs3"] and list(frame["clump_size"]) == [2, 1]
     assert list(frame.columns[:3]) == ["id", "trait", "rsid"] or list(frame.columns[:2]) == [
         "id",
         "rsid",
     ]
     assert frame.iloc[0]["n"] == 5000 and frame.iloc[0]["beta"] == pytest.approx(0.9)
-    assert frame.attrs["clumped"] == {"r2": 0.001, "kb": 3000, "store": "eur-k10"}
+    assert frame.attrs["clump"]["leads"] == 2 and frame.attrs["clump"]["store"] == "eur-k10"
 
 
 @respx.mock
@@ -167,9 +167,9 @@ def test_unclumped_and_ignored_options() -> None:
 
 
 @respx.mock
-def test_truncation_warning_explains_clumping() -> None:
+def test_truncation_warnings() -> None:
     serve(truncated=True)
-    with pytest.warns(UserWarning, match="weaker independent signals may be missing"):
+    with pytest.warns(UserWarning, match="more than 10,000 clumped leads"):
         compat.tophits("OGS-1:A", r2=0.1, kb=1000)
     with pytest.warns(UserWarning, match="only the strongest were returned"):
         compat.tophits("OGS-1:A", clump=0)
