@@ -1,6 +1,6 @@
 # Usage examples
 
-ieugwaspy's usage notebook, rewritten for opengwaspy. The whole script is [`examples/usage_examples.py`](https://github.com/opengwas/opengwaspy/blob/main/examples/usage_examples.py). The output below is from runs against the Data API on 19 and 20 Nov 2026; the script took 36 s.
+ieugwaspy's usage notebook, rewritten for opengwaspy. The whole script is [`examples/usage_examples.py`](https://github.com/opengwas/opengwaspy/blob/main/examples/usage_examples.py). The output below is from runs against the Data API on 19–21 Nov 2026.
 
 ```python
 import opengwaspy as og
@@ -29,17 +29,16 @@ ieugwaspy listed every study with `gwasinfo()` for you to filter. `og.gwasinfo()
 
 ## Top hits for one study, clumped
 
-ieugwaspy clumped at r² 0.001 within 10,000 kb, which the LD stores cannot answer exactly (see [Migrating](migrating.md#top-hit-clumping)). Here we clump at r² 0.001 within 3,000 kb:
+ieugwaspy clumped at r² 0.001 within 10,000 kb, which the LD stores cannot answer exactly (see [Migrating](migrating.md#top-hit-clumping)). Here we clump at r² 0.001 within 3,000 kb. The Data API clumps every hit on the server, in one job:
 
 ```python
 study = bmi.sort_values("sample_size", ascending=False).iloc[0]["id"]  # OGS-00011:GCST90179150
-leads = ieugwaspy.tophits([study], r2=0.001, kb=3000)  # 118 independent hits
+leads = ieugwaspy.tophits([study], r2=0.001, kb=3000)  # 770 independent hits
 leads[["rsid", "chr", "position", "ea", "beta", "p"]].sort_values("p").head()
 ```
 
 ```text
-UserWarning: some analyses have more than 10,000 hits at p <= 5e-08; only the strongest were clumped, so weaker independent signals may be missing
-UserWarning: 1578 hits are not in the EUR LD store and were dropped before clumping
+UserWarning: 11,793 hits are not in the EUR LD store, so were not clumped or returned
 ```
 
 ```text
@@ -51,37 +50,39 @@ UserWarning: 1578 hits are not in the EUR LD store and were dropped before clump
 4  rs10938397   4   45180510  A -0.026404   1.177278e-87
 ```
 
-The warnings matter. This analysis has more than 10,000 genome-wide significant hits, so only the strongest 10,000 were clumped. And variants the LD store does not hold cannot be clumped. rs1421085's `p` is 0.0 because it is below 1e-308; its `log10_p` keeps the value.
+This analysis has 89,563 genome-wide significant hits. All of them were clumped, except the 11,793 the LD store does not hold: those cannot be clumped, as in ieugwasr, where variants missing from the reference panel were dropped. `leads.attrs["clump"]` has the counts. rs1421085's `p` is 0.0 because it is below 1e-308; its `log10_p` keeps the value.
 
 ## Associations of some SNPs in some studies, with proxies
 
+OpenGWAS IDs work: the Data API translates them.
+
 ```python
 snps = ["rs1421085", "rs6567160", "rs13021737"]
-studies3 = ["OGS-00009:ukb-b-19953", "OGS-00009:ukb-b-2303", "OGS-00011:GCST006802"]
+studies3 = ["ukb-b-19953", "ukb-b-2303", "ebi-a-GCST006802"]
 ieugwaspy.associations(snps, studies3, proxies=1, r2=0.8, align_alleles=1)[
-    ["id", "rsid", "ea", "nea", "beta", "p", "proxy"]
+    ["opengwas_id", "id", "rsid", "ea", "nea", "beta", "p", "proxy"]
 ]
 ```
 
 ```text
-                      id        rsid ea nea      beta              p  proxy
-0  OGS-00009:ukb-b-19953  rs13021737  A   G -0.055125   8.357732e-99  False
-1  OGS-00009:ukb-b-19953   rs1421085  C   T  0.073556  4.336199e-291  False
-2  OGS-00009:ukb-b-19953   rs6567160  C   T  0.054072  2.317582e-118  False
-3   OGS-00009:ukb-b-2303  rs13021737  A   G -0.055052   4.070364e-97  False
-4   OGS-00009:ukb-b-2303   rs1421085  C   T  0.073433  7.372227e-286  False
-5   OGS-00009:ukb-b-2303   rs6567160  C   T  0.053522  2.558953e-114  False
-6   OGS-00011:GCST006802  rs13021737  A   G  0.006398   5.224012e-01  False
-7   OGS-00011:GCST006802   rs1421085  C   T -0.025004   3.086451e-05  False
-8   OGS-00011:GCST006802   rs6567160  C   T  0.005001   5.371111e-01  False
+        opengwas_id                     id        rsid ea nea      beta              p  proxy
+0       ukb-b-19953  OGS-00009:ukb-b-19953  rs13021737  A   G -0.055125   8.357732e-99  False
+1       ukb-b-19953  OGS-00009:ukb-b-19953   rs1421085  C   T  0.073556  4.336199e-291  False
+2       ukb-b-19953  OGS-00009:ukb-b-19953   rs6567160  C   T  0.054072  2.317582e-118  False
+3        ukb-b-2303   OGS-00009:ukb-b-2303  rs13021737  A   G -0.055052   4.070364e-97  False
+4        ukb-b-2303   OGS-00009:ukb-b-2303   rs1421085  C   T  0.073433  7.372227e-286  False
+5        ukb-b-2303   OGS-00009:ukb-b-2303   rs6567160  C   T  0.053522  2.558953e-114  False
+6  ebi-a-GCST006802   OGS-00011:GCST006802  rs13021737  A   G  0.006398   5.224012e-01  False
+7  ebi-a-GCST006802   OGS-00011:GCST006802   rs1421085  C   T -0.025004   3.086451e-05  False
+8  ebi-a-GCST006802   OGS-00011:GCST006802   rs6567160  C   T  0.005001   5.371111e-01  False
 ```
 
-Every SNP was found in every study, so no proxy was needed. A row with `proxy` true would show the proxy's own SNP, and `target_snp` the one you asked for.
+`id` is the Data API's analysis, and `opengwas_id` the ID you asked for. `ebi-a-GCST006802` became `OGS-00011:GCST006802` (an exact match; `attrs["opengwas_ids"]` says so). Every SNP was found in every study, so no proxy was needed. A row with `proxy` true would show the proxy's own SNP, and `target_snp` the one you asked for.
 
 ## A PheWAS
 
 ```python
-phewas = ieugwaspy.phewas(["rs1421085"], pval=1e-5)
+phewas = ieugwaspy.phewas(["rs1421085"], pval=1e-5)  # pval is applied on the server
 phewas.sort_values("p")[["trait", "beta", "p", "n"]].head()
 ```
 
