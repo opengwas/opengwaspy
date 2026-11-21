@@ -22,15 +22,46 @@ GCST90199621 rs1171615 10:59709332:C:T -24.568359 2.753232e-133
 UserWarning: some analyses have more than 3 hits at p <= 5e-08; only the strongest were returned (raise limit for more)
 ```
 
-!!! warning "Not clumped"
-    These three hits are one signal: neighbouring variants in LD. The Data API does not
-    LD-clump top hits. ieugwaspy's `tophits` clumped by default; the ieugwaspy-compatible
-    layer will do so through the LD operations, and [`ld_clump`](ld.md#clumping) lets you
-    clump them yourself.
+!!! warning "Not clumped by default"
+    These three hits are one signal: neighbouring variants in LD. Pass `clump` to
+    clump them on the server (below).
 
 - **`threshold`** (default 5e-8) is exact. Each Store's index holds tiers up to 5e-4. A looser threshold raises `RequestError` with code `unsupported_threshold`, and `error.extra["indexed_thresholds"]` lists the tiers, for example `[5e-08, 5e-06, 0.0005]`.
 - **`limit`** (default 1,000) is per analysis, keeping the largest |z|. `attrs["truncated"]` says whether any analysis was cut, and opengwaspy warns when it was.
 - **`observed_only`** defaults to `False` for top hits, as in the API.
+
+### Clumped on the server
+
+With `clump=True`, the Data API clumps **every** hit of each analysis at the threshold in an LD Store, and returns only the leads, strongest first, each with `clump_size` (the hits in its clump):
+
+```python
+leads = og.tophits("OGS-00006:GCST90199621", clump=True)
+leads[["rsid", "alid", "z", "p", "clump_size"]]
+```
+
+```text
+       rsid            alid          z             p  clump_size
+  rs1171617 10:59707424:G:T -24.639648 4.751576e-134         210
+   rs274548 5:132395115:C:T   9.392578  5.854925e-21         188
+rs149235996 5:151340348:A:G   8.125000  4.473624e-16           7
+ rs10994001 10:59772198:G:T  -6.326172  2.513179e-10          12
+ rs10900223 10:45526183:C:T  -5.986328  2.146312e-09          30
+```
+
+```python
+leads.attrs["clump"]
+```
+
+```text
+{'r2': 0.001, 'kb': 3000.0, 'hits': 557, 'leads': 5, 'absent': 110,
+ 'ld_stores': {'EUR': 'hgdp1kgp-v2-EUR-k10'}}
+```
+
+- **Defaults:** r² 0.001 within 3,000 kb, in the LD Store of each analysis's own ancestry, or EUR when it has none. Choose with a mapping: `clump={"r2": 0.01, "kb": 1000, "ancestry": "EAS"}`, or `"store"` for an LD Store by name (see `og.ld_stores()`).
+- **`limit`** then applies to each analysis's leads.
+- **`absent`** counts hits the LD Store does not hold. They are not clumped, and not returned.
+- **Settings the LD Store cannot answer exactly** are refused with `LDRefusal`, as [`ld_clump`](ld.md#clumping) refuses them. For example, r² 0.001 beyond 3,000 kb is refused, and the message says what the store can answer.
+- It is one job. While its hits wait for an LD worker, its status goes back from `running` to `queued`.
 
 ## PheWAS
 

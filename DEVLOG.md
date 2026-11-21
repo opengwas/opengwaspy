@@ -9,6 +9,27 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-21 - #68: top hits clumped on the server
+
+- **Native `tophits(clump=...)`:**
+  - `True` sends `{}`, the server's defaults: r² 0.001 within 3,000 kb, in each analysis's own ancestry's LD Store, or EUR.
+  - A mapping sends `r2`, `kb`, and `ancestry` or `store`. Unknown keys, and both `ancestry` and `store`, are refused before any request.
+  - `attrs["clump"]` holds the clump settings. Across jobs, `hits`, `leads` and `absent` are summed and `ld_stores` merged.
+  - With clumping, the truncation warning says "clumped leads".
+- **`compat.tophits`:**
+  - It sends `clump` (`r2`, `kb`, and the `pop` store by name) with `limit=10000`.
+  - Removed: `_clump`, the client-side `/api/ld/clump` per analysis, and the warning about clumping only the strongest 10,000.
+  - The 10,000 kb default is still refused before any job, with the same suggestions (#44). The server also refuses it (`422 ld_refusal`).
+  - Hits absent from the LD Store come from `metadata.clump.absent`, and are warned about.
+- **Live, on 6433:** image `sha256:b00d3288e95f8aacb9831ef24fcb1b9fe3f74c796cabb66739541e74b1a8b963`.
+  - `compat.tophits(['OGS-00011:GCST90179150'], r2=0.001, kb=3000)` (BMI) gave 770 leads from 89,563 hits, 11,793 absent, in one job. The client-side method gave 118. The first run was in the live examples test; the repeat, served from the API's cache, took 0.4 s.
+  - `og.tophits('OGS-00006:GCST90199621', clump=True)` gave 5 leads from 557 hits, 110 absent.
+  - `clump={"r2": 0.001, "kb": 10000}` gave `LDRefusal` (`ld_refusal`).
+- **Docs:** the guide's top hits ("Clumped on the server"), the migration guide and the changelog. Rerunning the examples page is #71.
+- **Checks:**
+  - ruff, mypy, `pytest` (244 passed, 99.5% coverage) and `mkdocs build --strict` pass;
+  - `pytest -m live tests/test_live_hits.py tests/test_live_compat.py tests/test_live_examples.py --no-cov` gives 12 passed in 50 s.
+
 ## 2026-11-21 - #67: PheWAS threshold on the server
 
 - **Native `phewas(threshold=1e-8)`:**

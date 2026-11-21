@@ -4,7 +4,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from opengwaspy import Client, RequestError
+from opengwaspy import Client, LDRefusal, RequestError
 from opengwaspy.hits import phewas, tophits
 from tests.conftest import LiveAPI
 
@@ -53,3 +53,19 @@ def test_phewas_threshold_on_the_server(client: Client) -> None:
     assert (frame["p"] <= 1e-8).all()
     stricter = phewas("rs429358", threshold=1e-50, client=client, limit=10_000)
     assert 0 < len(stricter) < len(frame) and (stricter["p"] <= 1e-50).all()
+
+
+def test_tophits_clumped_on_the_server(client: Client) -> None:
+    leads = tophits(ANALYSIS, clump=True, client=client)
+    summary = leads.attrs["clump"]
+    assert summary["leads"] == len(leads) > 0 and summary["hits"] > len(leads)
+    assert summary["ld_stores"] == {"EUR": summary["ld_stores"]["EUR"]}
+    assert (summary["r2"], summary["kb"]) == (0.001, 3000)
+    assert leads["clump_size"].sum() <= summary["hits"]
+    assert "rs1171617" in set(leads["rsid"])
+
+
+def test_tophits_clump_refused_beyond_near_bp(client: Client) -> None:
+    with pytest.raises(LDRefusal) as info:
+        tophits(ANALYSIS, clump={"r2": 0.001, "kb": 10_000}, client=client)
+    assert info.value.error == "ld_refusal"

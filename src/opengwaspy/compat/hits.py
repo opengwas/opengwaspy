@@ -16,8 +16,8 @@ from opengwaspy.errors import UnsupportedOptionError
 
 __all__ = ["clump_settings_answerable", "tophits"]
 
-#: Most hits per analysis fetched for clumping, the strongest by |z|.
-CLUMP_HITS = 10_000
+#: Most leads per analysis, when clumping: the API's largest top-hits limit.
+CLUMP_LEADS = 10_000
 
 
 def _ids(id: str | Iterable[str]) -> list[str]:
@@ -77,8 +77,9 @@ def tophits(
 ) -> pd.DataFrame:
     """Top hits, clumped by default, as ieugwaspy's ``tophits``.
 
-    With ``clump=1``, each analysis's hits at ``p <= pval`` are clumped with the
-    ``pop`` LD store (scored by absolute z), and only each clump's lead is returned.
+    With ``clump=1``, the Data API clumps every hit of each analysis at
+    ``p <= pval`` in the ``pop`` LD Store, on the server, and only each clump's
+    lead is returned, with ``clump_size``.
 
     **ieugwaspy's default clumping (r2=0.001 within kb=10000) is refused**,
     because the LD stores cannot answer it exactly. The error suggests settings
@@ -86,8 +87,8 @@ def tophits(
     ``t_far`` (about 0.03; 0.063 for AMR) within 10,000 kb. Answerable settings
     are honoured.
 
-    Variants the LD store does not hold cannot be clumped, and are dropped with
-    a warning, as ieugwasr's clumping drops variants missing from its reference.
+    Hits the LD store does not hold cannot be clumped, and are dropped with a
+    warning, as ieugwasr's clumping drops variants missing from its reference.
 
     Args:
         id: Analysis IDs.
@@ -102,6 +103,8 @@ def tophits(
 
     Returns:
         The hits (the leads, when clumped), with ieugwaspy's column names first.
+        When clumped, ``attrs["clump"]`` has the settings, the counts of
+        ``hits``, ``leads`` and ``absent``, and the LD Store used.
 
     Raises:
         UnsupportedOptionError: The clumping settings cannot be answered exactly, or
@@ -112,60 +115,35 @@ def tophits(
     store = _store(pop) if clump else None
     if store is not None and not clump_settings_answerable(r2, kb, store):
         raise _refusal(r2, kb, pop, store)
-    limit = CLUMP_HITS if clump else 1000
+    settings = {"r2": r2, "kb": kb, "store": store["store"]} if store is not None else False
+    limit = CLUMP_LEADS if clump else 1000
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        hits = og.tophits(ids, threshold=pval, limit=limit)
+        hits = og.tophits(ids, threshold=pval, limit=limit, clump=settings)
     for warning in caught:  # replace the native truncation warning with our own
         if not str(warning.message).startswith("some analyses have more than"):
             warnings.warn(warning.message, warning.category, stacklevel=2)
     if hits.attrs.get("truncated"):
-        consequence = (
-            "only the strongest were clumped, so weaker independent signals may be missing"
-            if clump
-            else "only the strongest were returned"
-        )
+        what = "clumped leads" if clump else "hits"
         warnings.warn(
-            f"some analyses have more than {limit:,} hits at p <= {pval:g}; {consequence}",
+            f"some analyses have more than {limit:,} {what} at p <= {pval:g}; "
+            "only the strongest were returned",
             stacklevel=2,
         )
-    if clump and not hits.empty:
-        hits = _clump(hits, r2, kb, store or {})
+    absent = (hits.attrs.get("clump") or {}).get("absent") or 0
+    if store is not None and absent:
+        warnings.warn(
+            f"{absent:,} hits are not in the {store['ancestry']} LD store, so were not "
+            "clumped or returned",
+            stacklevel=2,
+        )
+    attrs = dict(hits.attrs)
     info = og.gwasinfo(sorted(set(_qualified(hits)))) if not hits.empty else pd.DataFrame()
     sizes = dict(zip(info.get("id", []), info.get("sample_size", []), strict=False))
-    return ieugwas_columns(hits, sizes)
+    result = ieugwas_columns(hits, sizes)
+    result.attrs.update(attrs)
+    return result
 
 
 def _qualified(frame: pd.DataFrame) -> list[str]:
     return [f"{s}:{a}" for s, a in zip(frame["store_id"], frame["analysis_id"], strict=True)]
-
-
-def _clump(hits: pd.DataFrame, r2: float, kb: float, store: dict[str, Any]) -> pd.DataFrame:
-    keep: list[pd.DataFrame] = []
-    dropped = 0
-    for _, group in hits.groupby(["store_id", "analysis_id"], sort=False):
-        group = group.drop_duplicates("alid")
-        clumped = og.ld_clump(
-            list(group["alid"]),
-            [abs(float(z)) for z in group["z"]],
-            r2=r2,
-            kb=kb,
-            store=store["store"],
-        )
-        dropped += len(clumped.attrs.get("absent") or [])
-        leads = (
-            set(clumped.loc[clumped["alid"] == clumped["lead"], "alid"])
-            if not clumped.empty
-            else set()
-        )
-        keep.append(group[group["alid"].isin(leads)])
-    if dropped:
-        warnings.warn(
-            f"{dropped} hits are not in the {store['ancestry']} LD store "
-            "and were dropped before clumping",
-            stacklevel=3,
-        )
-    out = pd.concat(keep, ignore_index=True) if keep else hits.iloc[0:0]
-    out.attrs.update(hits.attrs)
-    out.attrs["clumped"] = {"r2": r2, "kb": kb, "store": store["store"]}
-    return out

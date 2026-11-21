@@ -29,7 +29,7 @@ Either way, results are pandas DataFrames, not JSON. The compat functions put ie
 | — | — | `og.gwasinfo_search(q)` | New: find analyses by label, or by a full-text query |
 | `gwasinfo_files(id)` | `gwasinfo_files(id)` | `og.gwasinfo_files()` | Not available: no download links; no Store records its source files yet |
 | `associations(variant, id, proxies=1, r2=0.8, align_alleles=1, palindromes=1, maf_threshold=0.3)` | same signature; proxies come from the LD stores | `og.associations(variants, analyses)` (no proxies) | Same, with proxies from a different reference panel (HGDP + 1000 Genomes) |
-| `tophits(id, pval=5e-8, clump=1, r2=0.001, kb=10000, pop="EUR", ...)` | same signature | `og.tophits(analyses)` (not clumped), then `og.ld_clump` | **Differs: the default clumping is refused** (below) |
+| `tophits(id, pval=5e-8, clump=1, r2=0.001, kb=10000, pop="EUR", ...)` | same signature; clumped on the server | `og.tophits(analyses, clump={...})` | **Differs: the default clumping is refused** (below) |
 | `phewas(variant, pval=1e-3, batch=[])` | same signature; `pval` sent to the server | `og.phewas(variant, threshold=...)` (default 1e-8) | Same |
 | `variants_chrpos(chrpos)` | `variants_chrpos(chrpos)`: the first rsID | `og.variants_chrpos(positions)` | Same |
 | `variants_to_rsid(variants)` | `variants_to_rsid(variants)`: returns a new list | (as above) | Same, but does not change its argument |
@@ -62,6 +62,8 @@ whether a more distant pair has r2 >= 0.001. Choose one of:
   tophits(..., r2=0.04, kb=10000)   # r2 above the store's t_far, up to 10,000 kb
 or clump=0 for the unclumped hits.
 ```
+
+Answerable settings are clumped on the server, from every hit of each analysis at `pval`, in the `pop` LD Store. Hits that store does not hold are not clumped or returned, and a warning gives their number, as ieugwasr's clumping dropped variants missing from its reference.
 
 `preclumped`, `bychr` and `force_server` are accepted, and have no effect.
 
