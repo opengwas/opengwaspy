@@ -155,12 +155,18 @@ class Client:
         return body
 
     def batches(self) -> pd.DataFrame:
-        """The data releases (Stores) the API serves, one row each."""
+        """The data releases (Stores) the API serves, one row each.
+
+        ``attrs["opengwas_batches"]`` lists the OpenGWAS batches (``ebi-a``,
+        ``finn-b``, ...) the API resolves, each with its ``store_ids`` and ``match``.
+        """
         body = json_body(self.transport.get("api/batches"))
         rows = body.get("batches", body) if isinstance(body, dict) else body
         if not isinstance(rows, list):
             raise ProtocolError("/api/batches did not return a list of batches")
         frame: pd.DataFrame = pd.DataFrame.from_records(rows)
+        opengwas = body.get("opengwas_batches") if isinstance(body, dict) else None
+        frame.attrs["opengwas_batches"] = list(opengwas or [])
         return frame
 
     def served_releases(self) -> dict[str, list[str]]:

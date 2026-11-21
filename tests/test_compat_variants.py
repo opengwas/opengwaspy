@@ -123,7 +123,10 @@ def test_phewas_batch_and_skips() -> None:
     compat.phewas("rs1", batch=["OGS-2"])
     releases = [b["releases"] for e, b in server.bodies if e.endswith("phewas")]
     assert releases == [[{"store_id": "OGS-2", "release_id": "r2"}]]
-    with pytest.raises(UnsupportedOptionError, match="ieu-a is not a Data API Store"):
+    with pytest.raises(
+        UnsupportedOptionError,
+        match="batch ieu-a is neither a Data API Store nor an OpenGWAS batch",
+    ):
         compat.phewas("rs1", batch=["ieu-a"])
 
 

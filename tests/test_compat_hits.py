@@ -187,5 +187,6 @@ def test_unknown_pop() -> None:
 @respx.mock
 def test_no_hits() -> None:
     respx.get(f"{BASE}/api/ld/stores").respond(json={"stores": [EUR]})
+    respx.post(f"{BASE}/api/gwasinfo").respond(json={"analyses": [{"id": "OGS-1:A"}]})
     JobServer(BASE, lambda e, b: [])
     assert compat.tophits("OGS-1:A", r2=0.1, kb=1000).empty

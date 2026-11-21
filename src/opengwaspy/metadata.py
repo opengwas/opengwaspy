@@ -74,7 +74,9 @@ def gwasinfo(
 
     With ``ids``, returns those analyses, in the order given. A bare ID held by
     several Stores returns one row from each; a Store-qualified ID
-    (``OGS-00006:GCST90199621``) returns one.
+    (``OGS-00006:GCST90199621``) returns one. An OpenGWAS ID (``ebi-a-GCST006802``,
+    ``finn-b-E4_OBESITY``) returns the analyses the API resolves it to, and
+    ``attrs["opengwas"]`` says how each was resolved, or why it was not.
 
     Without ``ids``, lists the served analyses, page by page.
 
@@ -89,8 +91,11 @@ def gwasinfo(
 
     Returns:
         One row per analysis. ``attrs`` holds ``release_id``,
-        ``catalog_version``, and either ``not_found`` and ``retired`` (lookup)
-        or ``total`` (listing).
+        ``catalog_version``, and either ``not_found``, ``retired`` and
+        ``opengwas`` (lookup) or ``total`` (listing). Each ``opengwas`` entry has
+        the OpenGWAS ``id``, its ``batch`` and ``catalog_ids``, and a ``match``
+        (``exact``, or ``successor`` for a later release of the same analysis)
+        or a ``reason`` it has none.
 
     Raises:
         RequestError: With ``strict``, some IDs were not found or are retired.
@@ -107,6 +112,7 @@ def gwasinfo(
     rows: list[dict[str, Any]] = []
     not_found: list[str] = []
     retired: list[Any] = []
+    opengwas: list[Any] = []
     meta: Mapping[str, Any] = {}
     for start in range(0, len(wanted), PAGE):
         chunk = wanted[start : start + PAGE]
@@ -117,6 +123,7 @@ def gwasinfo(
         rows.extend(meta["analyses"])
         not_found.extend(meta.get("not_found") or [])
         retired.extend(meta.get("retired") or [])
+        opengwas.extend(meta.get("opengwas") or [])
     if strict and (not_found or retired):
         missing = ", ".join([*not_found, *(str(r) for r in retired)][:10])
         raise RequestError(
@@ -131,6 +138,7 @@ def gwasinfo(
         catalog_version=meta.get("catalog_version"),
         not_found=not_found,
         retired=retired,
+        opengwas=opengwas,
     )
     return frame
 

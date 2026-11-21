@@ -37,7 +37,9 @@ def batches(*, client: Client | None = None) -> pd.DataFrame:
 
     In OpenGWAS, a batch was an ID prefix such as ``ieu-a``. In the Data API, a
     batch is a Store release, with its ``store_id``, ``release_id``, analysis
-    count and capabilities.
+    count and capabilities. ``attrs["opengwas_batches"]`` maps the OpenGWAS
+    batches the API resolves (``ukb-b``, ``ebi-a``, ``eqtl-a``, ``finn-b``) to
+    the Stores they reach.
 
     Args:
         client: The client to use; defaults to :func:`~opengwaspy.get_client`.

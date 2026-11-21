@@ -152,7 +152,9 @@ def test_rsid_targets_positions_and_ranges() -> None:
 
 @respx.mock
 def test_nothing_found() -> None:
-    respx.post(f"{BASE}/api/gwasinfo").respond(json={"analyses": []})
+    respx.post(f"{BASE}/api/gwasinfo").respond(
+        json={"analyses": [{"id": A, "analysis_id": "A", "assigned_ancestry": "EUR"}]}
+    )
     respx.get(f"{BASE}/api/ld/stores").respond(
         json={"stores": [{"ancestry": "EUR", "store": "eur"}]}
     )

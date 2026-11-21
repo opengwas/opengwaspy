@@ -9,6 +9,34 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-21 - #69: OpenGWAS IDs and batches translated by the Data API
+
+- **Native, additive:**
+  - `gwasinfo()` lookups keep the API's `opengwas` list in `attrs["opengwas"]`, across chunks.
+  - `batches()` keeps `opengwas_batches` in `attrs["opengwas_batches"]`.
+- **`compat/_ids.py`:**
+  - `resolve(ids)` makes one `gwasinfo` lookup. Legacy `UKB-b:` forms are converted first, Data API IDs pass through, and OpenGWAS IDs become their `catalog_ids`.
+  - A successor match is used, with a warning naming each old → new ID (owner decision of 21 Nov 2026).
+  - Unresolved IDs are left out, with a warning giving the API's reason.
+  - `resolve_batches(batch)` maps Store IDs and OpenGWAS batches to Stores. Successors warn; unknown batches are refused with the list of what is held.
+- **Used by** `compat.gwasinfo`, `gwasinfo_files`, `tophits` and `associations` (IDs), and `phewas` (`batch`).
+  - Results add `opengwas_id` (last) and `attrs["opengwas_ids"]`.
+  - `compat.gwasinfo` still prints the untranslated IDs, now with reasons.
+  - An all-untranslated request returns an empty result with the provenance.
+- **Live, on 6433:** image `sha256:b00d3288e95f8aacb9831ef24fcb1b9fe3f74c796cabb66739541e74b1a8b963`.
+
+  | Query | Result |
+  |---|---|
+  | `compat.gwasinfo([ukb-b-19953, ebi-a-GCST006802, finn-b-E4_OBESITY, eqtl-a-ENSG00000141510, ieu-a-2])` | 4 analyses: `ukb-b-19953` as itself, two exact, one successor (`OGS-00017:finngen-r13-E4_OBESITY`, warned). `ieu-a-2` printed as "not held by any Store" |
+  | `compat.tophits([ebi-a-GCST006802, finn-b-E4_OBESITY], r2=0.001, kb=3000)` | 76 leads, 3.6 s |
+  | `compat.phewas('rs1421085', pval=1e-8, batch=['ebi-a', 'ukb-b'])` | 468 rows, from 5 Stores |
+  | `compat.phewas(..., batch=['finn-b'])` | 41 rows, warned |
+
+- **Checks:**
+  - ruff, mypy and `pytest` (251 passed; `_ids.py` at 100% coverage) pass;
+  - `pytest -m live --no-cov`, the whole live suite, gives 35 passed in 68 s.
+- WORKPLAN: removed the open question on OpenGWAS ID mapping. `ieu-a`, `ieu-b`, `met-*` and `prot-*` remain unheld, and are reported as such.
+
 ## 2026-11-21 - #68: top hits clumped on the server
 
 - **Native `tophits(clump=...)`:**

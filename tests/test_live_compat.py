@@ -59,3 +59,17 @@ def test_phewas_pval_is_applied_on_the_server() -> None:
     frame = compat.phewas("rs429358", pval=1e-8)
     assert frame.attrs["threshold"] == 1e-8
     assert len(frame) > 100 and (frame["p"] <= 1e-8).all()
+
+
+def test_opengwas_ids_and_batches_translated(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.warns(UserWarning, match="finn-b-E4_OBESITY -> OGS-00017:"):
+        info = compat.gwasinfo(["ebi-a-GCST006802", "finn-b-E4_OBESITY", "ieu-a-2"])
+    assert list(info["opengwas_id"]) == ["ebi-a-GCST006802", "finn-b-E4_OBESITY"]
+    assert info.iloc[0]["id"] == "OGS-00011:GCST006802"
+    matches = {e["id"]: e.get("match", e.get("reason")) for e in info.attrs["opengwas_ids"]}
+    assert matches["ebi-a-GCST006802"] == "exact" and matches["finn-b-E4_OBESITY"] == "successor"
+    assert "ieu-a-2" in capsys.readouterr().out
+    assoc = compat.associations(["rs1421085"], ["ebi-a-GCST006802"])
+    assert list(assoc["opengwas_id"]) == ["ebi-a-GCST006802"]
+    frame = compat.phewas("rs1421085", pval=1e-8, batch=["ukb-b"])
+    assert set(frame["store_id"]) == {"OGS-00009"}

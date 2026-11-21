@@ -10,6 +10,7 @@ import pandas as pd
 
 import opengwaspy as og
 from opengwaspy.compat._columns import ieugwas_columns
+from opengwaspy.compat._ids import resolve_batches
 from opengwaspy.errors import UnsupportedOptionError
 
 __all__ = ["phewas", "variants_chrpos", "variants_to_rsid"]
@@ -73,16 +74,19 @@ def phewas(
     Args:
         variant: rsIDs, ALIDs, or ``chr:pos`` values (looked up first).
         pval: Largest p-value to keep, above 0 and at most 1.
-        batch: Stores to search, by Store ID (see :func:`opengwaspy.batches`).
-            Empty searches every Store. OpenGWAS batches such as ``ieu-a`` are
-            not Data API Stores, and are refused.
+        batch: Stores to search: Data API Store IDs (see :func:`opengwaspy.batches`),
+            or OpenGWAS batches the Data API resolves to Stores (``ukb-b``,
+            ``ebi-a``, ``eqtl-a``, and ``finn-b``, whose successor Store holds a
+            later FinnGen release; with a warning). Empty searches every Store.
+            Other OpenGWAS batches, such as ``ieu-a``, are not held, and are refused.
 
     Returns:
         The associations, with ieugwaspy's column names first. ``attrs`` has
         the ``threshold`` applied.
 
     Raises:
-        UnsupportedOptionError: A ``batch`` that is not a served Store, or more
+        UnsupportedOptionError: A ``batch`` that is neither a served Store nor a
+            resolved OpenGWAS batch, or more
             associations at ``pval`` than one query returns.
     """
     variants = [variant] if isinstance(variant, str) else list(variant)
@@ -122,16 +126,7 @@ def _as_query(variant: str) -> str | None:
 
 
 def _releases(batch: list[str]) -> list[str] | None:
-    if not batch:
-        return None
-    served = og.get_client().served_releases()
-    unknown = [b for b in batch if b not in served]
-    if unknown:
-        raise UnsupportedOptionError(
-            f"batch {', '.join(unknown)} is not a Data API Store. OpenGWAS batches such as "
-            f"ieu-a are not Stores; choose from {', '.join(sorted(served))}, or leave batch empty"
-        )
-    return batch
+    return resolve_batches(batch, stacklevel=4)
 
 
 def _filtered(variant: str, pval: float, releases: list[str] | None) -> pd.DataFrame:
