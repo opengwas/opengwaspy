@@ -9,6 +9,13 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-21 - search refused under load: ogdb-api#164
+
+- In the owner's stress run (a local script at `stress/stress_test.py`, ignored by git), `gwasinfo_search("vitamin")` failed with `RequestError` `400 query_too_broad`.
+- With the server idle, the same search took 0.1–0.5 s, with a total of 94.
+- The cause: the API stops a search after 1 s of clock time (`OGDB_SEARCH_BUDGET_SECONDS`). When the job workers are busy (`/api/status` showed 40 running and 100 queued), the scan passes that budget.
+- Filed opengwas/ogdb-api#164 with the owner's approval. It asks for `503` with `Retry-After` when the budget runs out because of load; opengwaspy already retries 503 as `BusyError`. No client change is needed.
+
 ## 2026-11-20 - #62: search documentation
 
 - `docs/guide/metadata.md` has a new "Find analyses" section, covering:
