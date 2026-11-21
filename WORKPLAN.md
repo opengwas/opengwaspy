@@ -23,6 +23,7 @@ This file does not track status, so it never disagrees with the board. It keeps:
 | #7 **opengwaspy works through the Gateway** | `/ogdb` prefix, OpenGWAS JWT provider, `X-Allowance-*` handling, the final login flow behind the auth interface, live tests through the Gateway | filed when the Gateway's auth is decided | #3; the Gateway's user auth workflow (opengwas-gateway) |
 | #8 **opengwaspy is released on PyPI** | versioning, changelog, trusted publishing, release checklist, ieugwaspy pointing to its successor | filed at release | #4, #5, #6; owner approval |
 | #60 **opengwaspy can find analyses by search** | `gwasinfo_search()` over the API's `/api/gwasinfo/search` (`contains` and FTS5 `fulltext`, filters, paging, typed errors); docs and examples. Proposed defaults in the epic: name `gwasinfo_search`, `limit=100`, POST | #61, #62 | #4; ogdb-api #141, #142 (served on 6433 since 19 Nov 2026) |
+| #70 **opengwaspy uses the Data API's PheWAS threshold, server clumping and OpenGWAS ID resolution** | PheWAS `threshold` (#67), top hits `clump` (#68), OpenGWAS IDs and batches resolved on the server (#69), docs (#71); removes the client-side workarounds | #67–#69, #71 | ogdb-api#162 (#165–#167 merged 21 Nov 2026); 6433 redeployed from ogdb-api `main` |
 
 Order: #2, then #3 and #6's skeleton, then #4, then #5. #60 any time after #4. #7 starts its interface work in #3 (the auth provider, #12), and its integration waits on the Gateway. #8 last.
 
@@ -43,17 +44,23 @@ Order: #2, then #3 and #6's skeleton, then #4, then #5. #60 any time after #4. #
 - **PyPI** (owner, 19 Nov 2026): prepare the release machinery, but do not publish. The owner configures trusted publishing and tags the first release (#57).
 - **Merging:** agents may merge their own PRs once checks pass, unless the PR makes a breaking change to the public API or needs human input.
 
+**21 Nov 2026** (owner, planning #70)
+- **API for #70:** the owner redeploys 6433 from ogdb-api `main`. Until then, build with unit tests only; then run live tests on 6433. The VM's 7433 stays out of bounds.
+- **Native `phewas` threshold:** default to the server's (p ≤ 1e-8), instead of returning every association. This is a breaking change, approved by the owner, and recorded in the changelog (#67).
+- **`finn-b` successors in compat:** query the successor FinnGen analysis, warn naming each old → new ID, and record the mapping (`match: successor`) in `attrs` (#69).
+
 ## Open questions
 
 | Question | Waiting on | Affects |
 |---|---|---|
 | The Gateway's final user sign-in flow (device flow, browser, API keys?) and token lifetime | opengwas-gateway | #7 |
-| How OpenGWAS IDs (`ieu-a-2`, and the `batch` prefixes) map to Data API analyses. Today unserved IDs are reported, never dropped | opengwas/ogdb-api#147 | `compat` |
-| A p-value filter for PheWAS on the server. `compat.phewas` fetches every association and filters here, and refuses a Store holding more than 10,000 of a variant's associations | opengwas/ogdb-api#145 | `compat.phewas` |
-| Clumping well-powered analyses: more than 10,000 hits at 5e-8 (for example OGS-00011:GCST90179150), so `compat.tophits` clumps only the strongest 10,000, with a warning | opengwas/ogdb-api#146 | `compat.tophits` |
+| How OpenGWAS IDs (`ieu-a-2`, and the `batch` prefixes) map to Data API analyses. ogdb-api now resolves `ukb-b`, `ebi-a`, `eqtl-a` and `finn-b` (as successors); `ieu-a`, `ieu-b`, `met-*` and `prot-*` stay unresolved | opengwas/ogdb-api#147 (merged); client work in #69 | `compat` |
 | Under load, the API refuses ordinary searches with `400 query_too_broad` (a 1 s clock-time budget), which clients do not retry. Asked for `503` with `Retry-After` instead, which opengwaspy already retries | opengwas/ogdb-api#164 | `gwasinfo_search` |
 | ieugwaspy's README and PyPI page pointing to opengwaspy | owner (MRCIEU repo) | #58 |
 | PyPI trusted publisher and the `pypi` environment; the first tag | owner | #57 |
+
+Resolved on 21 Nov 2026:
+- **A PheWAS p-value filter on the server** (ogdb-api#145) and **clumping every hit on the server** (ogdb-api#146) are merged upstream. The client work is #67 and #68.
 
 Resolved on 19 Nov 2026:
 - **rsID → ALID for LD:** through `variants_rsid`, or the ALIDs association rows already carry (#33, #43).
