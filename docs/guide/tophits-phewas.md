@@ -34,26 +34,28 @@ UserWarning: some analyses have more than 3 hits at p <= 5e-08; only the stronge
 
 ## PheWAS
 
-`phewas` returns every association of one variant across analyses:
+`phewas` returns the associations of one variant across analyses, at p ≤ `threshold` (1e-8 by default, the Data API's own):
 
 ```python
 ph = og.phewas("rs1171617")
+len(ph), ph.attrs["total"]  # (67, 67)
 ph.sort_values("p")[["store_id", "analysis_label", "z", "p"]].head(4)
 ```
 
 ```text
- store_id                 analysis_label          z             p
-OGS-00006               Carnitine levels -24.639648 4.751576e-134
-OGS-00006                 X-12798 levels  14.945312  1.671054e-50
-OGS-00006 Propionylcarnitine (c3) levels -13.914062  5.203778e-44
-OGS-00006    Acetylcarnitine (c2) levels -11.958984  5.827023e-33
+ store_id   analysis_label          z             p
+OGS-00006 Carnitine levels -24.639648 4.751576e-134
+OGS-00012     GCST90475362  19.163086  7.527510e-82
+OGS-00012     GCST90475359  18.823242  4.871065e-79
+OGS-00012     GCST90475365  17.239258  1.347557e-66
 ```
 
-```text
-UserWarning: the PheWAS of rs1171617 has 10662 associations; only 1002 were returned (raise limit for more)
-```
+- **The threshold is applied on the server,** before any row is built, so `total`, `limit` and truncation count only the associations that pass it. Pass `threshold=1` for every association: rs1171617 has 10,662, more than the default `limit` returns:
 
-- **Releases.** By default, every served Store that can answer PheWAS is searched, 10 releases per job (13 Stores took two jobs and 10 s on 19 Nov 2026). Pass `releases=` to search fewer.
-- **No p-value filter on the server.** ieugwaspy's `phewas(pval=...)` filtered on the server; here you filter the table: `ph[ph.p < 1e-5]`. Check `ph.attrs["truncated"]` first: if it is true, rows beyond `limit` were never returned, so a filter cannot see them. Raise `limit`, or narrow `releases` or `analyses`.
-- `attrs` has `total` (associations that qualified) and `returned`.
+    ```text
+    UserWarning: the PheWAS of rs1171617 has 10662 associations at p <= 1; only 1002 were returned (raise limit, up to 10,000 per job, or lower threshold)
+    ```
+
+- **Releases.** By default, every served Store that can answer PheWAS is searched, 10 releases per job (13 Stores, two jobs). Pass `releases=` to search fewer.
+- `attrs` has `threshold`, `total` (associations that passed it), `returned` and `truncated`.
 - One variant per call: an rsID or an ALID.
