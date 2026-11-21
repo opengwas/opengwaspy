@@ -51,6 +51,7 @@ Order: #2, then #3 and #6's skeleton, then #4, then #5. #60 any time after #4. #
 | How OpenGWAS IDs (`ieu-a-2`, and the `batch` prefixes) map to Data API analyses. Today unserved IDs are reported, never dropped | opengwas/ogdb-api#147 | `compat` |
 | A p-value filter for PheWAS on the server. `compat.phewas` fetches every association and filters here, and refuses a Store holding more than 10,000 of a variant's associations | opengwas/ogdb-api#145 | `compat.phewas` |
 | Clumping well-powered analyses: more than 10,000 hits at 5e-8 (for example OGS-00011:GCST90179150), so `compat.tophits` clumps only the strongest 10,000, with a warning | opengwas/ogdb-api#146 | `compat.tophits` |
+| Under load, the API refuses ordinary searches with `400 query_too_broad` (a 1 s clock-time budget), which clients do not retry. Asked for `503` with `Retry-After` instead, which opengwaspy already retries | opengwas/ogdb-api#164 | `gwasinfo_search` |
 | ieugwaspy's README and PyPI page pointing to opengwaspy | owner (MRCIEU repo) | #58 |
 | PyPI trusted publisher and the `pypi` environment; the first tag | owner | #57 |
 
