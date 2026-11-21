@@ -9,6 +9,20 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-21 - #71: docs for the PheWAS threshold, server clumping and OpenGWAS IDs
+
+- **`docs/examples.md`:** rerun on 6433 (image `sha256:b00d3288…`).
+  - BMI top hits clumped on the server: 770 leads, with the warning about the 11,793 absent hits. Before, there were 118, and two warnings.
+  - The associations example now uses OpenGWAS IDs (`ukb-b-19953`, `ukb-b-2303`, `ebi-a-GCST006802`), with `opengwas_id`.
+  - The PheWAS notes that `pval` is applied on the server.
+- **`docs/guide/metadata.md`:** "OpenGWAS IDs", with live output of `attrs["opengwas"]` (exact, successor, not held) and `opengwas_batches`.
+- Already in #67–#69: the PheWAS and clumping sections of the guide, the migration guide, and the changelog (including the breaking change to `phewas`'s default threshold).
+- `examples/usage_examples.py` needed no change. It ran in 2.4 s, from the API's cache, and gave "770 independent hits".
+- **Checks:**
+  - `mkdocs build --strict` and `ruff format --check` pass;
+  - `pytest` (251 passed) passes;
+  - `pytest -m live tests/test_live_examples.py --no-cov` passes.
+
 ## 2026-11-21 - #69: OpenGWAS IDs and batches translated by the Data API
 
 - **Native, additive:**

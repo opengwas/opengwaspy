@@ -32,8 +32,28 @@ info.attrs["not_found"]
 
 Pass `strict=True` to raise `RequestError` instead.
 
-!!! note "OpenGWAS IDs"
-    IDs from the old OpenGWAS API, such as `ieu-a-2`, are not Data API analysis IDs. How old IDs map to new ones is still being decided.
+### OpenGWAS IDs
+
+IDs from the old OpenGWAS API are resolved by the Data API: pass them to `gwasinfo` and you get the analyses they map to. `attrs["opengwas"]` says how each was resolved:
+
+```python
+info = og.gwasinfo(["ebi-a-GCST006802", "finn-b-E4_OBESITY", "ieu-a-2"])
+list(info["id"])
+info.attrs["opengwas"]
+```
+
+```text
+['OGS-00011:GCST006802', 'OGS-00017:finngen-r13-E4_OBESITY']
+[{'id': 'ebi-a-GCST006802', 'batch': 'ebi-a', 'catalog_ids': ['OGS-00011:GCST006802'], 'match': 'exact'},
+ {'id': 'finn-b-E4_OBESITY', 'batch': 'finn-b', 'catalog_ids': ['OGS-00017:finngen-r13-E4_OBESITY'], 'match': 'successor'},
+ {'id': 'ieu-a-2', 'batch': 'ieu-a', 'catalog_ids': [], 'reason': 'OpenGWAS batch ieu-a is not held by any Store'}]
+```
+
+- **`exact`:** the same analysis. `ukb-b-*`, `ebi-a-GCST*` (the GCST accession) and `eqtl-a-ENSG*` (the Ensembl gene) resolve this way. A bare `ukb-b-19953` is also the analysis's own ID in its Store.
+- **`successor`:** a later release of the analysis. `finn-b-*` resolves to the same endpoint in a later FinnGen release than OpenGWAS held, so its numbers differ.
+- **No match:** `ieu-a`, `ieu-b`, `met-*` and `prot-*` are held by no Store. They are in `attrs["not_found"]`, with the `reason`.
+
+`og.batches().attrs["opengwas_batches"]` lists the Stores each OpenGWAS batch reaches. The [ieugwaspy-compatible layer](../migrating.md#analysis-ids) translates OpenGWAS IDs for you, and warns about successors.
 
 ## Find analyses
 
