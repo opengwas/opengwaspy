@@ -152,6 +152,10 @@ def test_gwasinfo_adds_trait_and_reports_missing(capsys: pytest.CaptureFixture[s
     assert json.loads(route.calls.last.request.content)["id"] == ["OGS-1:A", "ieu-a-2"]
     assert list(frame.columns[:2]) == ["id", "trait"] and frame.iloc[0]["trait"] == "Height"
     assert "1 IDs are not served by the Data API: ieu-a-2" in capsys.readouterr().out
+    assert list(frame["opengwas_id"]) == ["OGS-1:A"]
+    assert frame.attrs["opengwas_ids"] == [
+        {"id": "ieu-a-2", "reason": "not served by the Data API"}
+    ]
     compat.gwasinfo("OGS-1:A")
 
 

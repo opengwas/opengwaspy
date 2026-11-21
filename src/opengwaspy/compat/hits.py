@@ -11,17 +11,13 @@ import pandas as pd
 
 import opengwaspy as og
 from opengwaspy.compat._columns import ieugwas_columns
-from opengwaspy.compat.api import legacy_ids
+from opengwaspy.compat._ids import resolve
 from opengwaspy.errors import UnsupportedOptionError
 
 __all__ = ["clump_settings_answerable", "tophits"]
 
 #: Most leads per analysis, when clumping: the API's largest top-hits limit.
 CLUMP_LEADS = 10_000
-
-
-def _ids(id: str | Iterable[str]) -> list[str]:
-    return legacy_ids([id] if isinstance(id, str) else list(id))
 
 
 def _store(pop: str) -> dict[str, Any]:
@@ -111,8 +107,11 @@ def tophits(
             ``pop`` has no LD store.
     """
     del preclumped, bychr, force_server  # no effect on the Data API (documented)
-    ids = _ids(id)
+    resolved = resolve(id)
+    ids = resolved.ids
     store = _store(pop) if clump else None
+    if not ids:
+        return resolved.label(pd.DataFrame())
     if store is not None and not clump_settings_answerable(r2, kb, store):
         raise _refusal(r2, kb, pop, store)
     settings = {"r2": r2, "kb": kb, "store": store["store"]} if store is not None else False
@@ -138,12 +137,8 @@ def tophits(
             stacklevel=2,
         )
     attrs = dict(hits.attrs)
-    info = og.gwasinfo(sorted(set(_qualified(hits)))) if not hits.empty else pd.DataFrame()
+    info = resolved.info
     sizes = dict(zip(info.get("id", []), info.get("sample_size", []), strict=False))
     result = ieugwas_columns(hits, sizes)
     result.attrs.update(attrs)
-    return result
-
-
-def _qualified(frame: pd.DataFrame) -> list[str]:
-    return [f"{s}:{a}" for s, a in zip(frame["store_id"], frame["analysis_id"], strict=True)]
+    return resolved.label(result)

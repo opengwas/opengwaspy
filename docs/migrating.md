@@ -39,16 +39,26 @@ Either way, results are pandas DataFrames, not JSON. The compat functions put ie
 
 ### Analysis IDs
 
-OpenGWAS IDs such as `ieu-a-2` or `ukb-b-19953` are not all Data API IDs. A Data API analysis ID is `<store>:<analysis>`, for example `OGS-00009:ukb-b-19953`; the bare `ukb-b-19953` also works when only one Store holds it. IDs that are not served are listed in `attrs["not_found"]` (and printed by `compat.gwasinfo`), never dropped silently. To find analyses, search for them, rather than listing all of them with `gwasinfo()` and filtering in pandas:
+A Data API analysis ID is `<store>:<analysis>`, for example `OGS-00009:ukb-b-19953`; the bare `ukb-b-19953` also works when only one Store holds it. The `compat` functions also take OpenGWAS IDs, and translate them through the Data API in one `gwasinfo` lookup before any data call:
+
+| OpenGWAS ID | Becomes | Match |
+|---|---|---|
+| `ukb-b-19953` | `OGS-00009:ukb-b-19953` | the same ID |
+| `ebi-a-GCST006802` | `OGS-00011:GCST006802` (the GCST accession) | exact |
+| `eqtl-a-ENSG00000141510` | `OGS-00027:ENSG00000141510` (the Ensembl gene) | exact |
+| `finn-b-E4_OBESITY` | `OGS-00017:finngen-r13-E4_OBESITY` | **successor:** a later FinnGen release than OpenGWAS held, so the numbers may differ. A warning names each one |
+| `ieu-a-*`, `ieu-b-*`, `met-*`, `prot-*` | nothing: no Store holds these batches | left out, with a warning giving the reason |
+
+Results keep the Data API's `id`, and add `opengwas_id`, the ID each analysis was asked for, as their last column. `attrs["opengwas_ids"]` records each translation (`id`, `analyses`, `match`) or why there was none (`id`, `reason`). `compat.gwasinfo` also prints the IDs it could not translate. Nothing is dropped silently.
+
+To find analyses, search for them, rather than listing all of them with `gwasinfo()` and filtering in pandas:
 
 ```python
 og.gwasinfo_search("body mass", assigned_ancestry="EUR")
-og.gwasinfo_search('"ukb-b-19953"', match="fulltext")  # an old ID, if a Store holds it
+og.gwasinfo_search('"ukb-b-19953"', match="fulltext")  # an ID with hyphens, quoted
 ```
 
 See [Metadata: find analyses](guide/metadata.md#find-analyses).
-
-How every old ID maps to the new ones is still being decided.
 
 ### Top-hit clumping
 
@@ -73,7 +83,7 @@ Answerable settings are clumped on the server, from every hit of each analysis a
 
 ### PheWAS
 
-`compat.phewas` sends `pval` to the Data API as its PheWAS `threshold`, including ieugwaspy's default of 1e-3, because the Data API's own default is 1e-8. If more than 10,000 associations of one variant pass in one query (of up to 10 Stores), the result would be incomplete, so the call is refused: use a smaller `pval`, or fewer Stores with `batch`. `batch` names Data API Stores (see `og.batches()`), not OpenGWAS batches such as `ieu-a`.
+`compat.phewas` sends `pval` to the Data API as its PheWAS `threshold`, including ieugwaspy's default of 1e-3, because the Data API's own default is 1e-8. If more than 10,000 associations of one variant pass in one query (of up to 10 Stores), the result would be incomplete, so the call is refused: use a smaller `pval`, or fewer Stores with `batch`. `batch` takes Data API Store IDs (see `og.batches()`), or the OpenGWAS batches the Data API maps to Stores: `ukb-b`, `ebi-a` (10 Stores), `eqtl-a`, and `finn-b` (its successor Store, with a warning). Other OpenGWAS batches, such as `ieu-a`, are refused, and the error lists the batches and Stores there are.
 
 ### Columns
 

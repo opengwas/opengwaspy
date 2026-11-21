@@ -54,7 +54,6 @@ Order: #2, then #3 and #6's skeleton, then #4, then #5. #60 any time after #4. #
 | Question | Waiting on | Affects |
 |---|---|---|
 | The Gateway's final user sign-in flow (device flow, browser, API keys?) and token lifetime | opengwas-gateway | #7 |
-| How OpenGWAS IDs (`ieu-a-2`, and the `batch` prefixes) map to Data API analyses. ogdb-api now resolves `ukb-b`, `ebi-a`, `eqtl-a` and `finn-b` (as successors); `ieu-a`, `ieu-b`, `met-*` and `prot-*` stay unresolved | opengwas/ogdb-api#147 (merged); client work in #69 | `compat` |
 | Under load, the API refuses ordinary searches with `400 query_too_broad` (a 1 s clock-time budget), which clients do not retry. Asked for `503` with `Retry-After` instead, which opengwaspy already retries | opengwas/ogdb-api#164 | `gwasinfo_search` |
 | ieugwaspy's README and PyPI page pointing to opengwaspy | owner (MRCIEU repo) | #58 |
 | PyPI trusted publisher and the `pypi` environment; the first tag | owner | #57 |

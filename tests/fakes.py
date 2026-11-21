@@ -116,6 +116,7 @@ class JobServer:
         *,
         limits: dict[str, int] | None = None,
         batches: list[dict[str, Any]] | None = None,
+        opengwas_batches: list[dict[str, Any]] | None = None,
         metadata: Callable[[str, dict[str, Any]], dict[str, Any]] | None = None,
     ) -> None:
         import json
@@ -151,7 +152,10 @@ class JobServer:
             }
         )
         respx.get(f"{base}/api/batches").respond(
-            json={"batches": batches or [{"store_id": "OGS-1", "release_id": "OGS-1-r1"}]}
+            json={
+                "batches": batches or [{"store_id": "OGS-1", "release_id": "OGS-1-r1"}],
+                "opengwas_batches": opengwas_batches or [],
+            }
         )
         respx.post(url__regex=rf"{base}/api/(?!jobs).*").mock(side_effect=submit)
         respx.get(url__regex=rf"{base}/api/jobs/(?P<job>\w+)$").mock(side_effect=poll)

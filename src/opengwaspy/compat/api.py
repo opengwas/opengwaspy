@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import warnings
 import webbrowser
 from typing import Any
 
 import pandas as pd
 
 import opengwaspy as og
+from opengwaspy.compat._ids import legacy_ids, resolve
 from opengwaspy.config import PROFILES, save_setting
 
 __all__ = [
@@ -85,42 +87,54 @@ def get_jwt() -> None:
     print(f"\nYour token has been saved to {path}")
 
 
-def legacy_ids(study_ids: list[str]) -> list[str]:
-    """Convert legacy OpenGWAS study IDs (``UKB-a:``, ``IEU-a:``) to the newer form.
-
-    Kept from ieugwaspy for old code. OpenGWAS IDs such as ``ieu-a-2`` are not
-    Data API analysis IDs: look analyses up with :func:`gwasinfo`.
-    """
-    substitutions = {"UKB-a:": "ukb-a-", "UKB-b:": "ukb-b-", "UKB-c:": "ukb-c-", "IEU-a:": "ieu-a-"}
-    result = []
-    for study in study_ids:
-        for old, new in substitutions.items():
-            study = study.replace(old, new)
-        result.append(study)
-    return result
-
-
 def gwasinfo(id: list[str] | str | None = None) -> pd.DataFrame:
     """Metadata of analyses, as ieugwaspy's ``gwasinfo``, with a ``trait`` column.
 
+    OpenGWAS IDs are translated by the Data API: ``ukb-b-*``, ``ebi-a-GCST*``
+    and ``eqtl-a-ENSG*`` to the same analysis, and ``finn-b-*`` to its successor
+    in a later FinnGen release (with a warning). Other OpenGWAS batches, such as
+    ``ieu-a``, are not held by any Store.
+
     Args:
-        id: Analysis IDs; empty or ``None`` lists every analysis (about 40
-            requests of 1,000).
+        id: Analysis IDs, Data API or OpenGWAS; empty or ``None`` lists every
+            analysis (about 40 requests of 1,000).
 
     Returns:
         One row per analysis, ``id`` first and ``trait`` (the analysis label)
-        second, then the Data API's metadata columns. IDs not served are in
-        ``attrs["not_found"]``, and are also printed, because ieugwaspy users
-        are used to getting them silently dropped.
+        second, then the Data API's metadata columns, and ``opengwas_id`` (the ID
+        each analysis was asked for) last. ``attrs["opengwas_ids"]`` says how each OpenGWAS ID was
+        translated, or why it was not; untranslated IDs are also printed,
+        because ieugwaspy users are used to getting them silently dropped.
     """
     ids = [id] if isinstance(id, str) else list(id or [])
-    frame = og.gwasinfo(legacy_ids(ids)) if ids else og.gwasinfo()
+    if not ids:
+        frame = og.gwasinfo()
+        if not frame.empty:
+            frame.insert(1, "trait", frame.get("analysis_label"))
+        return frame
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        resolved = resolve(ids)
+    for warning in caught:  # successors still warn; what is left out is printed below
+        if "are left out" not in str(warning.message):
+            warnings.warn(warning.message, warning.category, stacklevel=2)
+    frame = resolved.info.copy()
     if not frame.empty:
+        order = {analysis: n for n, analysis in enumerate(resolved.ids)}
+        frame = frame[frame["id"].isin(order)].copy()
+        frame = frame.iloc[frame["id"].map(order).argsort()].reset_index(drop=True)
+        frame.attrs.update(resolved.info.attrs)
+        frame = resolved.label(frame)
         frame.insert(1, "trait", frame.get("analysis_label"))
-    missing = frame.attrs.get("not_found") or []
+    else:
+        frame.attrs["opengwas_ids"] = resolved.opengwas
+    missing = [e for e in resolved.opengwas if "reason" in e]
     if missing:
-        shown = ", ".join(missing[:10]) + (" ..." if len(missing) > 10 else "")
-        print(f"{len(missing)} IDs are not served by the Data API: {shown}")
+        shown = ", ".join(f"{e['id']} ({e['reason']})" for e in missing[:10])
+        print(
+            f"{len(missing)} IDs are not served by the Data API: {shown}"
+            + (" ..." if len(missing) > 10 else "")
+        )
     return frame
 
 
@@ -132,7 +146,7 @@ def gwasinfo_files(id: list[str] | str) -> pd.DataFrame:
     it raises :class:`~opengwaspy.NotImplementedByServer`.
     """
     ids = [id] if isinstance(id, str) else list(id)
-    info = og.gwasinfo(legacy_ids(ids))
+    info = resolve(ids).info
     stores = sorted(set(info["store_id"])) if "store_id" in info else []
     if not stores:
         raise og.RequestError(404, "analysis_not_found", f"none of {ids} is served")

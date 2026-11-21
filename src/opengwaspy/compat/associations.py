@@ -11,7 +11,7 @@ import pandas as pd
 
 import opengwaspy as og
 from opengwaspy.compat._columns import ieugwas_columns
-from opengwaspy.compat.api import legacy_ids
+from opengwaspy.compat._ids import resolve
 
 __all__ = ["associations"]
 
@@ -70,7 +70,12 @@ def associations(
         ``rsid``, ``alid``, ``chr`` and ``position`` are the proxy's.
     """
     variants = [variant] if isinstance(variant, str) else list(variant)
-    ids = legacy_ids([id] if isinstance(id, str) else list(id))
+    resolved = resolve(id)
+    ids = resolved.ids
+    if not ids:
+        empty: pd.DataFrame = pd.DataFrame()
+        empty.attrs["opengwas_ids"] = resolved.opengwas
+        return empty
     frames: list[pd.DataFrame] = []
     points: list[str] = []
     for v in variants:
@@ -98,14 +103,12 @@ def associations(
     non_empty = [f for f in frames if not f.empty]
     frame = pd.concat(non_empty, ignore_index=True) if non_empty else pd.DataFrame()
     if frame.empty:
+        frame.attrs["opengwas_ids"] = resolved.opengwas
         return frame
     frame["proxy"] = frame["proxy"].fillna(False).astype(bool) if "proxy" in frame else False
-    qualified = sorted(
-        {f"{s}:{a}" for s, a in zip(frame["store_id"], frame["analysis_id"], strict=True)}
-    )
-    info = og.gwasinfo(qualified)
+    info = resolved.info
     sizes = dict(zip(info.get("id", []), info.get("sample_size", []), strict=False))
-    return ieugwas_columns(frame, sizes)
+    return resolved.label(ieugwas_columns(frame, sizes))
 
 
 def _found(direct: pd.DataFrame) -> set[tuple[str, str]]:
