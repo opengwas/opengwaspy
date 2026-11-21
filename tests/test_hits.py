@@ -73,14 +73,17 @@ def test_phewas_defaults_to_capable_releases_in_groups_of_ten(client: Client) ->
     assert all("OGS-3" not in g for g in groups)
     body = server.bodies[0][1]
     assert body["variant"] == "rs1" and body["analyses"] == ["a"] and body["limit"] == 1000
+    assert body["threshold"] == 1e-8  # the Data API's default, sent explicitly
     assert len(frame) == 11 and "p" in frame.columns
+    assert frame.attrs["threshold"] == 1e-8
 
 
 @respx.mock
 def test_phewas_named_releases_and_truncation(client: Client) -> None:
     server = JobServer(BASE, hits, batches=BATCHES, metadata=truncated_meta)
-    with pytest.warns(UserWarning, match="has 5 associations; only 1 were returned"):
-        frame = phewas("rs1", releases=["OGS-1"], client=client)
+    with pytest.warns(UserWarning, match=r"has 5 associations at p <= 1e-05; only 1 were returned"):
+        frame = phewas("rs1", threshold=1e-5, releases=["OGS-1"], client=client)
+    assert server.bodies[0][1]["threshold"] == 1e-5
     assert server.bodies[0][1]["releases"] == [{"store_id": "OGS-1", "release_id": "r1"}]
     assert frame.attrs["returned"] == 1
 
@@ -96,7 +99,17 @@ def test_phewas_without_capable_release(client: Client) -> None:
         phewas("rs1", client=client)
 
 
-@pytest.mark.parametrize(("variant", "kw"), [("", {}), ("rs1", {"limit": 0})])
+@pytest.mark.parametrize(
+    ("variant", "kw"),
+    [("", {}), ("rs1", {"limit": 0}), ("rs1", {"threshold": 0}), ("rs1", {"threshold": 1.5})],
+)
 def test_phewas_validation(client: Client, variant: str, kw: dict[str, Any]) -> None:
     with pytest.raises(ValueError):
         phewas(variant, client=client, **kw)
+
+
+@respx.mock
+def test_phewas_threshold_from_result_metadata(client: Client) -> None:
+    JobServer(BASE, hits, batches=BATCHES, metadata=lambda e, b: {"threshold": 1.0, "total": 1})
+    frame = phewas("rs1", threshold=1, releases=["OGS-1"], client=client)
+    assert frame.attrs["threshold"] == 1.0

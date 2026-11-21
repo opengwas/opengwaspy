@@ -53,3 +53,9 @@ def test_associations_with_an_aligned_proxy() -> None:
     # The lead G lowers carnitine; the target T is in positive LD with G, so TTAC raises it.
     assert (proxy["ea"] == "TTAC") == (proxy["beta"] > 0)
     assert not frame[~frame["proxy"]].empty
+
+
+def test_phewas_pval_is_applied_on_the_server() -> None:
+    frame = compat.phewas("rs429358", pval=1e-8)
+    assert frame.attrs["threshold"] == 1e-8
+    assert len(frame) > 100 and (frame["p"] <= 1e-8).all()

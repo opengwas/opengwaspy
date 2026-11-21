@@ -30,7 +30,7 @@ Either way, results are pandas DataFrames, not JSON. The compat functions put ie
 | `gwasinfo_files(id)` | `gwasinfo_files(id)` | `og.gwasinfo_files()` | Not available: no download links; no Store records its source files yet |
 | `associations(variant, id, proxies=1, r2=0.8, align_alleles=1, palindromes=1, maf_threshold=0.3)` | same signature; proxies come from the LD stores | `og.associations(variants, analyses)` (no proxies) | Same, with proxies from a different reference panel (HGDP + 1000 Genomes) |
 | `tophits(id, pval=5e-8, clump=1, r2=0.001, kb=10000, pop="EUR", ...)` | same signature | `og.tophits(analyses)` (not clumped), then `og.ld_clump` | **Differs: the default clumping is refused** (below) |
-| `phewas(variant, pval=1e-3, batch=[])` | same signature; filtered by `pval` here | `og.phewas(variant)` (no p filter) | Same, slower: every association is fetched, then filtered |
+| `phewas(variant, pval=1e-3, batch=[])` | same signature; `pval` sent to the server | `og.phewas(variant, threshold=...)` (default 1e-8) | Same |
 | `variants_chrpos(chrpos)` | `variants_chrpos(chrpos)`: the first rsID | `og.variants_chrpos(positions)` | Same |
 | `variants_to_rsid(variants)` | `variants_to_rsid(variants)`: returns a new list | (as above) | Same, but does not change its argument |
 | `legacy_ids(ids)` | `legacy_ids(ids)` | | Same |
@@ -71,7 +71,7 @@ or clump=0 for the unclumped hits.
 
 ### PheWAS
 
-The Data API has no p-value filter, so `compat.phewas` fetches every association of the variant and filters it here. If one Store holds more than 10,000 associations of the variant (the most the API returns at once), the filter could miss some, so the call is refused. `batch` names Data API Stores (see `og.batches()`), not OpenGWAS batches such as `ieu-a`.
+`compat.phewas` sends `pval` to the Data API as its PheWAS `threshold`, including ieugwaspy's default of 1e-3, because the Data API's own default is 1e-8. If more than 10,000 associations of one variant pass in one query (of up to 10 Stores), the result would be incomplete, so the call is refused: use a smaller `pval`, or fewer Stores with `batch`. `batch` names Data API Stores (see `og.batches()`), not OpenGWAS batches such as `ieu-a`.
 
 ### Columns
 

@@ -42,3 +42,14 @@ def test_phewas_in_named_store(client: Client) -> None:
     assert frame.attrs["truncated"] is True and frame.attrs["total"] > 20
     assert set(frame["rsid"]) == {"rs1171617"}
     assert "total" in frame.attrs
+
+
+def test_phewas_threshold_on_the_server(client: Client) -> None:
+    # rs429358 (APOE): the server cuts at the threshold before building rows, so every
+    # association at p <= 1e-8 fits in one result.
+    frame = phewas("rs429358", client=client, limit=10_000)
+    assert frame.attrs["threshold"] == 1e-8 and frame.attrs["truncated"] is False
+    assert len(frame) == frame.attrs["total"] > 100
+    assert (frame["p"] <= 1e-8).all()
+    stricter = phewas("rs429358", threshold=1e-50, client=client, limit=10_000)
+    assert 0 < len(stricter) < len(frame) and (stricter["p"] <= 1e-50).all()

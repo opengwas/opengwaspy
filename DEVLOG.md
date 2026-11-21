@@ -9,6 +9,32 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-21 - #67: PheWAS threshold on the server
+
+- **Native `phewas(threshold=1e-8)`:**
+  - It sends `threshold`, always explicitly, defaulting to the Data API's 1e-8. It validates 0 < threshold ≤ 1.
+  - `attrs["threshold"]` comes from the result metadata.
+  - The truncation warning names the threshold.
+  - This is a breaking change (it used to return every association), approved by the owner on 21 Nov 2026 and noted in the changelog.
+- **`compat.phewas(pval)`:**
+  - It sends `pval` as `threshold` (ieugwaspy's 1e-3 explicitly), with `limit=10000`.
+  - Removed: the client-side filter, the per-Store rerun and its refusal.
+  - A result still truncated at 10,000 rows is refused, because returning it would be incomplete.
+- **Docs:** the PheWAS section of the guide, the migration guide and the changelog.
+- **Live, on 6433:** redeployed from ogdb-api `main` with #165–#167, image `sha256:b00d3288e95f8aacb9831ef24fcb1b9fe3f74c796cabb66739541e74b1a8b963`.
+
+  | Query | Result |
+  |---|---|
+  | `og.phewas("rs429358", limit=10000)` | 658 of 658 associations at p ≤ 1e-8, not truncated, in 2 jobs (13 Stores), 0.3 s |
+  | `compat.phewas("rs429358")` at p ≤ 1e-3 | 1,485 rows in 5.3 s |
+  | `compat.phewas("rs1421085", pval=1e-5)` | 751 rows in 0.4 s |
+  | `og.phewas("rs1171617", threshold=1, limit=1000)` | 10,662 in total, 1,002 returned, truncated |
+
+- **Checks:**
+  - ruff, mypy and `pytest` (237 passed) pass;
+  - `mkdocs build --strict` passes;
+  - `pytest -m live tests/test_live_hits.py tests/test_live_compat.py tests/test_live_examples.py --no-cov` gives 10 passed in 37 s.
+
 ## 2026-11-21 - search refused under load: ogdb-api#164
 
 - In the owner's stress run (a local script at `stress/stress_test.py`, ignored by git), `gwasinfo_search("vitamin")` failed with `RequestError` `400 query_too_broad`.

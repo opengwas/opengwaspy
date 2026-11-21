@@ -43,19 +43,22 @@ def answer(endpoint: str, body: dict[str, Any]) -> list[dict[str, Any]]:
     if endpoint.endswith("phewas"):
         if body["variant"] == "rs0":
             return []
-        return [row("A", -5.0, rsid="q"), row("B", -2.0, rsid="q")]
+        # The server applies the threshold.
+        rows = [row("A", -5.0, rsid="q"), row("B", -2.0, rsid="q")]
+        return [r for r in rows if 10 ** r["log10_p"] <= body["threshold"]]
     return []
 
 
-def truncation(limit_ok: int | None) -> Any:
+def truncation(truncated: bool) -> Any:
     def meta(endpoint: str, body: dict[str, Any]) -> dict[str, Any]:
         if not endpoint.endswith("phewas"):
             return {}
-        per_store = len(body["releases"]) == 1
-        truncated = limit_ok is None or body["limit"] < limit_ok or not per_store
-        if limit_ok == 0:
-            truncated = False
-        return {"total": 20_000, "returned": body["limit"], "truncated": truncated}
+        return {
+            "threshold": body["threshold"],
+            "total": 20_000,
+            "returned": body["limit"],
+            "truncated": truncated,
+        }
 
     return meta
 
@@ -69,7 +72,7 @@ def serve(meta: Any = None) -> JobServer:
             ]
         }
     )
-    return JobServer(BASE, answer, batches=BATCHES, metadata=meta or truncation(0))
+    return JobServer(BASE, answer, batches=BATCHES, metadata=meta or truncation(False))
 
 
 @respx.mock
@@ -86,32 +89,28 @@ def test_variants_chrpos_and_to_rsid() -> None:
 
 
 @respx.mock
-def test_phewas_filters_by_pval_with_old_columns() -> None:
+def test_phewas_sends_pval_as_threshold_with_old_columns() -> None:
     server = serve()
     frame = compat.phewas(["rs1", "7:5"], pval=1e-3)
     phewas_bodies = [b for e, b in server.bodies if e.endswith("phewas")]
     assert [b["variant"] for b in phewas_bodies] == ["rs1", "7:5:C:T"]
+    assert {(b["threshold"], b["limit"]) for b in phewas_bodies} == {(1e-3, 10_000)}
     assert list(frame["id"]) == ["OGS-1:A", "OGS-1:A"]
     assert (frame["p"] <= 1e-3).all() and list(frame["n"]) == [100, 100]
+    assert frame.attrs["threshold"] == 1e-3
 
 
 @respx.mock
-def test_phewas_reruns_with_largest_limit_when_truncated() -> None:
-    server = serve(truncation(10_000))
-    frame = compat.phewas("rs1", pval=0.5)
-    calls = [
-        (b["limit"], [r["store_id"] for r in b["releases"]])
-        for e, b in server.bodies
-        if e.endswith("phewas")
-    ]
-    assert calls == [(1000, ["OGS-1", "OGS-2"]), (10_000, ["OGS-1"]), (10_000, ["OGS-2"])]
-    assert len(frame) == 4
+def test_phewas_sends_ieugwaspy_default_explicitly() -> None:
+    server = serve()
+    compat.phewas("rs1")
+    assert [b["threshold"] for e, b in server.bodies if e.endswith("phewas")] == [1e-3]
 
 
 @respx.mock
-def test_phewas_refuses_when_still_truncated() -> None:
-    serve(truncation(None))
-    with pytest.raises(UnsupportedOptionError, match="in Store OGS-1 has 20,000 associations"):
+def test_phewas_refuses_when_truncated() -> None:
+    serve(truncation(True))
+    with pytest.raises(UnsupportedOptionError, match=r"rs1 has 20,000 associations at p <= 0\.001"):
         compat.phewas("rs1")
 
 
@@ -138,16 +137,5 @@ def test_phewas_ambiguous_position_and_empty_result() -> None:
 @respx.mock
 def test_phewas_variant_with_no_associations() -> None:
     serve()
-    assert compat.phewas("rs0").empty
-
-
-@respx.mock
-def test_per_store_rerun_with_no_rows() -> None:
-    respx.post(f"{BASE}/api/gwasinfo").respond(json={"analyses": []})
-    JobServer(
-        BASE,
-        lambda e, b: [],
-        batches=BATCHES,
-        metadata=lambda e, b: {"truncated": len(b["releases"]) > 1},
-    )
-    assert compat.phewas("rs1").empty
+    frame = compat.phewas("rs0")
+    assert frame.empty and frame.attrs["threshold"] == 1e-3

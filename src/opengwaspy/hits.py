@@ -4,7 +4,8 @@
   p-value threshold. They are **not LD-clumped**: neighbouring variants of
   one signal all appear. (Clumping is offered by the ieugwaspy-compatible
   layer, through the LD operations.)
-* :func:`phewas`: every association of one variant, across analyses.
+* :func:`phewas`: the associations of one variant across analyses, at or below
+  a p-value threshold (1e-8 by default).
 """
 
 from __future__ import annotations
@@ -22,6 +23,8 @@ __all__ = ["phewas", "tophits"]
 
 #: Most releases one PheWAS job may name.
 PHEWAS_RELEASES = 10
+#: The Data API's default PheWAS p-value threshold.
+DEFAULT_PHEWAS_THRESHOLD = 1e-8
 
 
 def _summarise(frame: pd.DataFrame, keys: tuple[str, ...]) -> None:
@@ -34,6 +37,14 @@ def _summarise(frame: pd.DataFrame, keys: tuple[str, ...]) -> None:
         values = [m[key] for m in per_job if isinstance(m.get(key), (int, float))]
         if values:
             frame.attrs[key] = sum(values)
+
+
+def _first(frame: pd.DataFrame, key: str, default: Any) -> Any:
+    """A metadata value that is the same for every job, such as the threshold applied."""
+    per_job: list[dict[str, Any]] = frame.attrs.get("metadata_by_job") or [
+        frame.attrs.get("metadata") or {}
+    ]
+    return next((m[key] for m in per_job if m.get(key) is not None), default)
 
 
 def tophits(
@@ -103,35 +114,40 @@ def tophits(
 def phewas(
     variant: str,
     *,
+    threshold: float = DEFAULT_PHEWAS_THRESHOLD,
     releases: Iterable[ReleaseLike] | None = None,
     analyses: str | Iterable[str] | None = None,
     limit: int = 1000,
     observed_only: bool = True,
     client: Client | None = None,
 ) -> pd.DataFrame:
-    """Every association of one variant, across analyses (a PheWAS).
+    """The associations of one variant across analyses (a PheWAS), at p ≤ ``threshold``.
 
-    There is no p-value filter on the server: filter the result yourself, for
-    example ``frame[frame.p < 1e-5]``. Check ``attrs["truncated"]`` first.
+    The server applies ``threshold`` before it builds any row, so ``total``,
+    ``limit`` and truncation count only associations that pass it. The default,
+    1e-8, is the Data API's. Pass ``threshold=1`` for every association.
 
     Args:
         variant: One rsID or ALID.
+        threshold: The largest two-sided p-value to return, above 0 and at most 1.
         releases: The Stores to search. By default, every served release whose
             Store can answer PheWAS.
         analyses: Only these analyses.
-        limit: Most rows per job (each job covers up to 10 releases).
+        limit: Most rows per job (each job covers up to 10 releases; at most 10,000).
         observed_only: Leave out imputed associations.
         client: The client to use; defaults to :func:`~opengwaspy.get_client`.
 
     Returns:
-        The associations, with ``p``. ``attrs`` has ``total`` (rows that
-        qualified), ``returned`` and ``truncated``.
+        The associations, with ``p``. ``attrs`` has ``threshold``, ``total``
+        (rows that passed it), ``returned`` and ``truncated``.
     """
     client = client or get_client()
     if not isinstance(variant, str) or not variant.strip():
         raise ValueError("variant must be one rsID or ALID")
     if limit < 1:
         raise ValueError("limit must be at least 1")
+    if not 0 < threshold <= 1:
+        raise ValueError("threshold must be above 0 and at most 1")
     release_refs = resolve_releases(client, releases)
     if release_refs is None:
         release_refs = _phewas_releases(client)
@@ -140,6 +156,7 @@ def phewas(
         drop_none(
             {
                 "variant": variant.strip(),
+                "threshold": threshold,
                 "releases": group,
                 "analyses": analysis_list,
                 "limit": limit,
@@ -150,10 +167,12 @@ def phewas(
     ]
     frame = add_p(run(client, "api/phewas", bodies))
     _summarise(frame, ("total", "returned"))
+    frame.attrs["threshold"] = _first(frame, "threshold", threshold)
     if frame.attrs["truncated"]:
         warnings.warn(
-            f"the PheWAS of {variant} has {frame.attrs.get('total', 'more')} associations; "
-            f"only {len(frame)} were returned (raise limit for more)",
+            f"the PheWAS of {variant} has {frame.attrs.get('total', 'more')} associations at "
+            f"p <= {threshold:g}; only {len(frame)} were returned (raise limit, up to 10,000 "
+            "per job, or lower threshold)",
             stacklevel=2,
         )
     return frame
