@@ -26,10 +26,17 @@ This file does not track status, so it never disagrees with the board. It keeps:
 | #70 **opengwaspy uses the Data API's PheWAS threshold, server clumping and OpenGWAS ID resolution** | PheWAS `threshold` (#67), top hits `clump` (#68), OpenGWAS IDs and batches resolved on the server (#69), docs (#71); removes the client-side workarounds | #67–#69, #71 | ogdb-api#162 (#165–#167 merged 21 Nov 2026); 6433 redeployed from ogdb-api `main` |
 | #88 **opengwaspy has an MCP server for AI assistants** | A local stdio MCP server in the `mcp` extra (`opengwaspy-mcp`): metadata, top hits, associations (+proxies), regions, PheWAS, variants and LD tools over the native functions; results capped for the model, `save_as` to a set folder, long jobs resumable; users' OpenGWAS tokens (JWT) through the Gateway as the primary credential | #89–#95 | #80, #83 (job waits, completeness); #7 for live tests with JWT |
 | #107 **opengwaspy keeps pace with the Data API's 0.3.0 Stores, stored Clumps, Rho, HapMap3 and selectable LD Stores** | Follows ogdb-api#198: `tophits(clump=True)` answering from stored Clumps (#109), LD Store choice by the registry's defaults with several Stores per ancestry (#108), `rho()` (#110), HapMap3 extraction (#111) | #108–#111 | ogdb-api#197, #181 (merged 27 Nov 2026); #195, #194, #182 (open) |
+| #87 **opengwaspy queries downloaded Store Releases locally through ogquery** | `og.local(paths)`: a Local Source answering the API's requests in process through ogquery's public API, with the API's rows; the `local` extra (Python 3.12+); associations (#113), top hits, PheWAS, variants and metadata (#114), stored Clumps, Rho and HapMap3 (#115), local LD Stores and Genotype Stores (#116), parity on a real Store and a guide (#117) | #113–#117 | ogquery ≥ 0.5 (PyPI); #109–#111 for #115; a redeployed 6433 for #117 |
 
 Order: #2, then #3 and #6's skeleton, then #4, then #5. #60 any time after #4. #7 starts its interface work in #3 (the auth provider, #12), and its integration waits on the Gateway. #8 last.
 
 ## Decisions
+
+**27 Nov 2026** (owner asked for local Store queries through ogquery; planned in #87, following opengwasr's owner decisions of 25 Nov 2026 for opengwasr#2)
+- **Shape:** `og.local(paths)` returns a `LocalSource` passed as `client`. It answers the same requests the functions send to the API, through ogquery's public API, as ogdb-api's `query_operations.py` does, so frames, chunking and `attrs` are shared. Functions that need the API take a `Client` only and refuse a Local Source with `LocalUnsupported`; nothing falls back to the API silently.
+- **Identity:** full paths of Store Releases, at most one per Store; analyses named `store_id:analysis_id` (or an unambiguous bare ID); OpenGWAS IDs refused locally with a pointer to `gwasinfo` on the API.
+- **Packaging:** the `local` extra, `ogquery>=0.5,<0.6; python_version >= '3.12'`; Genotype Stores later through `ogquery[genotype]`. The core install and Python 3.10–3.11 are unaffected.
+- **Fixtures:** three of ogquery's contract releases are vendored under `tests/data/ogquery-contract/` (about 1 MB).
 
 **19 Nov 2026** (owner, at project setup)
 - **Shape:** a native client named after the Data API's fields, plus an ieugwaspy-compatible layer (`opengwaspy.compat`) that composes server operations on the client (proxies through `ld/proxies`, clumping through `ld/clump`, `p` from `log10_p`), and refuses what it cannot honour (REQUIREMENTS §4, §7).

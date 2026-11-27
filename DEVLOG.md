@@ -9,6 +9,19 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #113: the Local Source, and association queries on it
+
+- **Plan:** #87 became the epic "opengwaspy queries downloaded Store Releases locally through ogquery", with tickets #113–#117 (WORKPLAN, 27 Nov). ogquery 0.5.0 (PyPI, `fe2a455`, tag `v0.5.0`) read: `ogquery.release.open_release`, `ogquery.facade.query_release` (`lookup`, `analysis`, `range_phewas`, `resolve(..., include_variant_info=True)`), whose rows are the ones ogdb-api serves (ogdb-api `origin/main`: `query_operations.execute_operation`, `resolve.resolve_rows`, `ordering.row_key`, `operations._store_result`).
+- **Built:**
+  - `opengwaspy.source`: a `Source` protocol (what the job-based functions use), `LocalUnsupported`, and `require_api()`, now at the top of every function that needs the API (`gwasinfo*`, `ld_*`, `rho`, `status`, `user`, `batches`), so a Local Source is refused by name rather than failing on a missing attribute.
+  - `opengwaspy.local`: `local(paths)` and `LocalSource`. It opens each release with ogquery (format 0.3 only; 0.2.3 is told to `ogdb rewrite-release`, older to rebuild), refuses two releases of one Store, and answers `api/associations`, `api/associations/range` and `api/associations/analysis`: analyses resolved as the API does (qualified, or an unambiguous bare ID; `ambiguous_analysis`, `analysis_not_found` and `release_not_found` as `RequestError`s with the API's codes; an OpenGWAS ID gets a translation hint), rows from `resolve(..., include_variant_info=True)` plus `store_id` and `release_id`, non-finite values as `None` (ogdb-api#193), sorted by the API's `row_key`. ogquery is imported lazily, so the core package never needs it.
+  - `associations`, `associations_range` and `associations_analysis` take a `Source`. `_common.run` and `resolve_releases` take a `Source`.
+- **Fixtures:** `dense_ranges`, `ragged_ranges` and `hybrid_ranges` from ogquery `v0.5.0`'s contract bundle (opengwasdb `355449d7`), copied byte for byte to `tests/data/ogquery-contract/` (with `SOURCE`, `VERSION`, `.gitattributes`). Tests copy them under their own Store IDs where they need several.
+- **Packaging and CI:** the `local` extra; `ogquery` in the dev group for Python ≥ 3.12 (this pins numpy below 2.5 there, ogquery's bound). CI: a `local source` job on Linux, macOS and Windows, Python 3.12 and 3.14; the package job checks the core wheel has no ogquery and that the `[local]` wheel opens a contract release. Run locally: the core wheel on 3.10 says what to install; the `[local]` wheel on 3.12 opens `dense_ranges`.
+- **Docs:** guide page "Downloaded Stores", reference page "Local Source", changelog.
+- **Checks:** ruff, mypy (78 files), `pytest` 390 passed (coverage 99%; `local/_source.py` 99%), `mkdocs build --strict`.
+- **Not yet:** top hits, PheWAS, variant lookups and metadata (#114); parity with the API on a real Store (#117, needs a redeployed 6433).
+
 ## 2026-11-27 - #110: rho(), a GWAS Store's Rho Matrix
 
 - **Upstream:** ogdb-api#181 (merge `3ca9f64`, 27 Nov 2026): `POST /api/rho`, one release, optional `analyses`; one row per Analysis with `rho` and `n_null` lists over `metadata.analyses`; `metadata.settings`; `422 rho_unavailable` without a Rho Matrix; no row cap. Read from ogdb-api `origin/main` (`query_operations._rho`, `schemas.RhoBody`, `docs/guide/rho.qmd`).

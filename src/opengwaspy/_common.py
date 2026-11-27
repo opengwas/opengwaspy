@@ -7,7 +7,7 @@ from typing import Any, TypeVar
 
 import pandas as pd
 
-from opengwaspy.client import Client
+from opengwaspy.source import Source
 
 T = TypeVar("T")
 
@@ -35,7 +35,7 @@ def chunks(values: Sequence[T], size: int) -> Iterator[list[T]]:
 
 
 def resolve_releases(
-    client: Client, releases: Iterable[ReleaseLike] | None
+    client: Source, releases: Iterable[ReleaseLike] | None
 ) -> list[dict[str, str]] | None:
     """Release references for a request body.
 
@@ -109,7 +109,7 @@ def combine(frames: Sequence[pd.DataFrame]) -> pd.DataFrame:
     return combined
 
 
-def run(client: Client, endpoint: str, bodies: Sequence[Mapping[str, Any]]) -> pd.DataFrame:
+def run(client: Source, endpoint: str, bodies: Sequence[Mapping[str, Any]]) -> pd.DataFrame:
     """Run one job per body (a few at a time), and combine the results in order."""
     if len(bodies) == 1:
         return combine([client.query(endpoint, bodies[0])])

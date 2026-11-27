@@ -38,6 +38,7 @@ nav:
       - LD: guide/ld.md
       - Rho Matrix: guide/rho.md
       - Jobs and large queries: guide/jobs.md
+      - Downloaded Stores: guide/local.md
       - Use with AI assistants: guide/ai-assistants.md
   - Reference:
       - Client: reference/client.md
@@ -48,6 +49,7 @@ nav:
       - Variants: reference/variants.md
       - LD: reference/ld.md
       - Rho Matrix: reference/rho.md
+      - Local Source: reference/local.md
       - ieugwaspy compatibility: reference/compat.md
       - Configuration: reference/config.md
       - Authentication: reference/auth.md

@@ -58,7 +58,7 @@ def test_rho_full_matrix(client: Client) -> None:
     assert list(matrix.index) == FULL and list(matrix.columns) == FULL
     assert matrix.dtypes.unique().tolist() == [np.dtype("float32")]
     assert matrix.loc["a", "b"] == pytest.approx(0.25)
-    assert np.isnan(matrix.loc["a", "c"])
+    assert np.isnan(matrix.to_numpy()[0, 2])
     assert (np.diag(matrix.to_numpy()) == 1).all()
     n_null = matrix.attrs["n_null"]
     assert n_null.loc["a", "c"] == 12 and n_null.dtypes.unique().tolist() == [np.dtype("int64")]
