@@ -9,6 +9,14 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #110: rho(), a GWAS Store's Rho Matrix
+
+- **Upstream:** ogdb-api#181 (merge `3ca9f64`, 27 Nov 2026): `POST /api/rho`, one release, optional `analyses`; one row per Analysis with `rho` and `n_null` lists over `metadata.analyses`; `metadata.settings`; `422 rho_unavailable` without a Rho Matrix; no row cap. Read from ogdb-api `origin/main` (`query_operations._rho`, `schemas.RhoBody`, `docs/guide/rho.qmd`).
+- **`opengwaspy.rho(release, analyses=None)`** returns a square `float32` DataFrame (NaN where not estimated), with `attrs["n_null"]` (a square int64 frame, or float with NaN if the API ever sends `null`), `settings`, `store_id`, `release_id`, the job's provenance and `image_digest`. It reads rows as they arrive into arrays, rather than one DataFrame of list cells. A matrix that isn't square over `metadata.analyses` is a `ProtocolError`. A Store ID with several served releases is refused (name the release).
+- **Not done here:** an MCP tool for Rho. A full matrix is far beyond what a model should read; a capped sub-matrix tool can be added if wanted.
+- **Docs:** guide page "Rho Matrix", reference page, changelog.
+- **Checks:** ruff, mypy (74 files), `pytest` 371 passed (coverage 98.9%), `mkdocs build --strict`.
+- **Not live-checked:** 6433 refuses 0.3.0 Stores until redeployed (#95). Live check then: an OGS-00017 sub-matrix equals the same cells of the full matrix, and a Ragged Store (OGS-00006) is refused.
 ## 2026-11-27 - #109: top hits from stored Clumps
 
 - **Upstream:** ogdb-api#197 (merge `bfcc279`, 27 Nov 2026). `clump: {}` at 5e-8 now answers from a release's stored Clumps where it has them (served Stores: r² = EUR `t_far` ≈ 0.032 within 10,000 kb, HGDP+1kGP EUR); r2/kb given use them only on an exact match; otherwise computed at r² 0.001 within 3,000 kb. Read from ogdb-api `origin/main` (`ld_clump.merge_stored`, `stored_clumps.py`, `docs/guide/tophits.qmd`), fetched read-only.
