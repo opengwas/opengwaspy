@@ -14,7 +14,7 @@ It succeeds [ieugwaspy](https://github.com/MRCIEU/ieugwaspy). The new API runs e
 ## What it does for you
 
 - **Waits politely.** It polls at the interval the API suggests, honours `Retry-After` when the API is busy, and keeps only a few jobs in flight at once.
-- **Checks what it reads.** Every page of a result is verified against its checksum.
+- **Checks what it reads.** Every page of a result is verified against its checksum, and the whole result against its manifest.
 - **Keeps provenance.** Every DataFrame carries the job, query hash, data releases and result metadata in `DataFrame.attrs`.
 - **Never changes your question silently.** If an option cannot be honoured exactly, opengwaspy refuses it and says why, rather than returning a different answer.
 
@@ -22,5 +22,6 @@ It succeeds [ieugwaspy](https://github.com/MRCIEU/ieugwaspy). The new API runs e
 
 - [Install](install.md), then the [Quickstart](quickstart.md)
 - Coming from ieugwaspy? [Migrating](migrating.md) and the [Usage examples](examples.md)
+- Using an AI assistant? [Use with AI assistants](guide/ai-assistants.md): opengwaspy's MCP server
 - The guide: [Metadata](guide/metadata.md), [Associations](guide/associations.md), [Top hits and PheWAS](guide/tophits-phewas.md), [Variants](guide/variants.md), [LD](guide/ld.md), [Jobs](guide/jobs.md)
 - The [reference](reference/client.md), generated from the code

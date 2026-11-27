@@ -55,3 +55,15 @@ jobs:
           uv venv /tmp/check
           uv pip install --python /tmp/check dist/*.whl
           /tmp/check/bin/python -c "import opengwaspy; print(opengwaspy.__version__)"
+      - name: the core package does not need the mcp extra
+        run: |
+          if /tmp/check/bin/python -c "import mcp" 2>/dev/null; then
+            echo "mcp was installed without the extra"; exit 1
+          fi
+          /tmp/check/bin/python -c "import opengwaspy.compat, opengwaspy.jobs"
+      - name: the mcp extra installs and its server starts
+        run: |
+          uv venv /tmp/check-mcp
+          uv pip install --python /tmp/check-mcp "$(ls dist/*.whl)[mcp]"
+          /tmp/check-mcp/bin/opengwaspy-mcp --version
+          /tmp/check-mcp/bin/python -c "from opengwaspy.mcp import create_server; create_server()"
