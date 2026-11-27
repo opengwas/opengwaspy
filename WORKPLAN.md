@@ -2,7 +2,7 @@
 
 ## How to use this file
 
-The [OpenGWASDB project board](https://github.com/orgs/opengwas/projects/1), Workstream **Python client**, is the one tracker for this repository's work. Epics are on the board, and tickets are their sub-issues in `opengwas/opengwaspy`. The board's README sets the rules.
+The [OpenGWASDB project board](https://github.com/orgs/opengwas/projects/1), Workstream **Clients** (named **Python client** until the board's workstreams were renamed), is the one tracker for this repository's work. Epics are on the board, and tickets are their sub-issues in `opengwas/opengwaspy`. The board's README sets the rules.
 
 This file does not track status, so it never disagrees with the board. It keeps:
 - pointers to the epics;
@@ -24,6 +24,7 @@ This file does not track status, so it never disagrees with the board. It keeps:
 | #8 **opengwaspy is released on PyPI** | versioning, changelog, trusted publishing, release checklist, ieugwaspy pointing to its successor | filed at release | #4, #5, #6; owner approval |
 | #60 **opengwaspy can find analyses by search** | `gwasinfo_search()` over the API's `/api/gwasinfo/search` (`contains` and FTS5 `fulltext`, filters, paging, typed errors); docs and examples. Proposed defaults in the epic: name `gwasinfo_search`, `limit=100`, POST | #61, #62 | #4; ogdb-api #141, #142 (served on 6433 since 19 Nov 2026) |
 | #70 **opengwaspy uses the Data API's PheWAS threshold, server clumping and OpenGWAS ID resolution** | PheWAS `threshold` (#67), top hits `clump` (#68), OpenGWAS IDs and batches resolved on the server (#69), docs (#71); removes the client-side workarounds | #67–#69, #71 | ogdb-api#162 (#165–#167 merged 21 Nov 2026); 6433 redeployed from ogdb-api `main` |
+| #88 **opengwaspy has an MCP server for AI assistants** | A local stdio MCP server in the `mcp` extra (`opengwaspy-mcp`): metadata, top hits, associations (+proxies), regions, PheWAS, variants and LD tools over the native functions; results capped for the model, `save_as` to a set folder, long jobs resumable; users' OpenGWAS tokens (JWT) through the Gateway as the primary credential | #89–#95 | #80, #83 (job waits, completeness); #7 for live tests with JWT |
 
 Order: #2, then #3 and #6's skeleton, then #4, then #5. #60 any time after #4. #7 starts its interface work in #3 (the auth provider, #12), and its integration waits on the Gateway. #8 last.
 
@@ -48,6 +49,14 @@ Order: #2, then #3 and #6's skeleton, then #4, then #5. #60 any time after #4. #
 - **API for #70:** the owner redeploys 6433 from ogdb-api `main`. Until then, build with unit tests only; then run live tests on 6433. The VM's 7433 stays out of bounds.
 - **Native `phewas` threshold:** default to the server's (p ≤ 1e-8), instead of returning every association. This is a breaking change, approved by the owner, and recorded in the changelog (#67).
 - **`finn-b` successors in compat:** query the successor FinnGen analysis, warn naming each old → new ID, and record the mapping (`match: successor`) in `attrs` (#69).
+
+**27 Nov 2026** (owner, planning #88)
+- **The MCP server** lives in opengwaspy, as the optional extra `mcp` (`mcp>=2.3,<3`; its server class is `MCPServer`), with the console script `opengwaspy-mcp`.
+- **Transport:** stdio only in v1. A hosted, multi-user server waits on the Gateway's sign-in flow (#7).
+- **Files:** `save_as` writes full results only into one set folder (`OPENGWAS_MCP_OUTPUT_DIR`, default `./opengwas-results`).
+- **Tool scope:** as in #88.
+- **Default limits:** 50 rows, a 60 s wait, ranges up to 1 Mb.
+- **Authentication:** ordinary users use an OpenGWAS token (JWT) through the Gateway; the developer key is for developers only. No tool takes a credential as an argument, and none appears in any output (#94).
 
 ## Open questions
 
