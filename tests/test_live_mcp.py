@@ -40,7 +40,7 @@ def test_search_tophits_associations_and_save(live_api: LiveAPI, tmp_path: Path)
                 text = "\n".join(getattr(c, "text", "") for c in result.content)
                 assert not result.is_error, f"{name}: {text}"
                 assert live_api.token not in text
-                body = result.structured_content
+                body: dict[str, Any] | None = result.structured_content
                 assert body is not None and body.get("status", "done") == "done", body
                 out.append(body)
                 return body
