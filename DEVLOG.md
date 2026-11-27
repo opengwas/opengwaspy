@@ -9,6 +9,13 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #114: top hits, PheWAS, variant lookups and metadata on a Local Source
+
+- **Mirrors ogdb-api `origin/main`:** `query_operations._top_hits` (the tightest stored tier at or above `threshold`, cut to |z| ≥ `z_critical(threshold)`, `limit` per analysis by |z| with ties in genome order, rows by Store, release, analysis then strength; `total` = rows returned), `_phewas` (cut before resolving; only releases with a by-variant read, as `releases._phewas_indexed`), `variants_by_rsid` / `variants_by_position` (the same filters), `releases._capabilities` (tiers from `data.zarr/top_hits/<key>`), and `main.metadata_lookup`'s no-catalog path for `gwasinfo` (each release's `analyses.tsv` rows, with `id`, `store_id`, `release_id`). The rank/cut helpers are ports of `ogdb_api/top_hits.py` over ogquery's public `z_critical`, `TOP_HIT_GROUP`, `threshold_key`.
+- **Public functions:** `tophits`, `phewas`, `variants_rsid` and `variants_chrpos` take a `Source`; `gwasinfo` and `batches` take a Local Source too. The `Source` protocol gains `batches()` (PheWAS chooses releases by `capabilities.phewas`). Clumped top hits on a Local Source raise `LocalUnsupported` until #115.
+- **Differences, documented:** local `gwasinfo` lacks the catalog's fields (`trait_class`, `outcome_type`, ...) and does not translate OpenGWAS IDs; its numbers are parsed from `analyses.tsv`.
+- **Checks:** ruff, mypy (78 files), `pytest` 398 passed (coverage 99%; `local/_source.py` 98%), `mkdocs build --strict`.
+
 ## 2026-11-27 - #113: the Local Source, and association queries on it
 
 - **Plan:** #87 became the epic "opengwaspy queries downloaded Store Releases locally through ogquery", with tickets #113–#117 (WORKPLAN, 27 Nov). ogquery 0.5.0 (PyPI, `fe2a455`, tag `v0.5.0`) read: `ogquery.release.open_release`, `ogquery.facade.query_release` (`lookup`, `analysis`, `range_phewas`, `resolve(..., include_variant_info=True)`), whose rows are the ones ogdb-api serves (ogdb-api `origin/main`: `query_operations.execute_operation`, `resolve.resolve_rows`, `ordering.row_key`, `operations._store_result`).

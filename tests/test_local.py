@@ -127,10 +127,12 @@ def test_reader_refusals(two: LocalSource) -> None:
 
 
 def test_unsupported(two: LocalSource) -> None:
-    with pytest.raises(LocalUnsupported, match="api/tophits"):
-        two.query("api/tophits", {"analyses": ["bmi_irn"]})
-    with pytest.raises(LocalUnsupported, match=r"opengwaspy\.gwasinfo"):
-        og.gwasinfo(["bmi_irn"], client=two)  # type: ignore[arg-type]
+    with pytest.raises(LocalUnsupported, match="api/ld/clump"):
+        two.query("api/ld/clump", {})
+    with pytest.raises(LocalUnsupported, match="clumped top hits"):
+        og.tophits("bmi_irn", clump=True, client=two)
+    with pytest.raises(LocalUnsupported, match=r"opengwaspy\.gwasinfo_search"):
+        og.gwasinfo_search("bmi", client=two)  # type: ignore[arg-type]
     with pytest.raises(LocalUnsupported, match=r"opengwaspy\.ld_stores"):
         og.ld_stores(client=two)  # type: ignore[arg-type]
     with pytest.raises(LocalUnsupported, match=r"opengwaspy\.status"):
@@ -205,3 +207,115 @@ def test_row_order_and_error_mapping() -> None:
     with pytest.raises(RequestError) as caught:
         _translated(unknown)
     assert caught.value.error == "analysis_not_found"
+
+
+@pytest.fixture
+def three(tmp_path: Path) -> Iterator[LocalSource]:
+    """The three layouts as three Stores: OGS-D (bmi_irn), OGS-R (trait_a), OGS-H (bmi_irn)."""
+    source = og.local(
+        [
+            release(tmp_path, "dense_ranges", "OGS-D"),
+            release(tmp_path, "ragged_ranges", "OGS-R"),
+            release(tmp_path, "hybrid_ranges", "OGS-H"),
+        ]
+    )
+    yield source
+    source.close()
+
+
+def test_batches(three: LocalSource) -> None:
+    frame = og.batches(client=three)
+    assert list(frame["store_id"]) == ["OGS-D", "OGS-R", "OGS-H"]
+    assert list(frame["layout"]) == ["dense", "ragged", "hybrid"]
+    capabilities = frame["capabilities"].iloc[0]
+    assert capabilities["top_hit_thresholds"] == [5e-8, 5e-6, 5e-4]
+    assert capabilities["phewas"] and capabilities["variants_rsid"]
+    assert frame.attrs["opengwas_batches"] == []
+
+
+def test_tophits_strongest_first_per_analysis(three: LocalSource) -> None:
+    with pytest.warns(UserWarning, match="more than 3 hits"):
+        frame = og.tophits(
+            ["OGS-D:bmi_irn", "OGS-R:trait_a", "OGS-H:bmi_irn"], limit=3, client=three
+        )
+    assert list(frame["store_id"]) == ["OGS-D"] * 3 + ["OGS-H"] * 3 + ["OGS-R"] * 3
+    for _, group in frame.groupby("store_id"):
+        strengths = list(group["z"].abs())
+        assert strengths == sorted(strengths, reverse=True)
+    assert frame.attrs["truncated"] is True and frame.attrs["total"] == 9
+
+
+def test_tophits_threshold_is_exact(three: LocalSource) -> None:
+    every = og.tophits("OGS-D:bmi_irn", threshold=5e-4, client=three)
+    tight = og.tophits("OGS-D:bmi_irn", threshold=1e-15, client=three)
+    assert set(tight["alid"]) < set(every["alid"])
+    assert (tight["log10_p"] <= -15).all()
+    left_out = every[~every["alid"].isin(tight["alid"])]["log10_p"]
+    assert (left_out.isna() | (left_out > -15)).all()  # NaN: the infinite-SE row
+    with pytest.raises(RequestError) as caught:
+        og.tophits("OGS-D:bmi_irn", threshold=0.01, client=three)
+    assert caught.value.error == "unsupported_threshold"
+    assert caught.value.extra["indexed_thresholds"] == [5e-8, 5e-6, 5e-4]
+
+
+def test_phewas(three: LocalSource) -> None:
+    frame = og.phewas("1:5000:C:G", threshold=1, client=three)
+    assert list(frame["store_id"]) == ["OGS-D", "OGS-H", "OGS-R"]  # the API's row order
+    assert set(frame["alid"]) == {"1:5000:C:G"}
+    assert frame.attrs["total"] == 3 and frame.attrs["truncated"] is False
+    only = og.phewas("1:5000:C:G", threshold=1, analyses=["OGS-R:trait_a"], client=three)
+    assert list(only["store_id"]) == ["OGS-R"]
+    assert og.phewas("1:5000:C:G", threshold=1e-300, client=three).empty
+
+
+def test_phewas_limit_truncates(three: LocalSource) -> None:
+    with pytest.warns(UserWarning, match="only 1 were returned"):
+        frame = og.phewas("1:5000:C:G", threshold=1, limit=1, client=three)
+    assert len(frame) == 1 and frame.attrs["total"] == 3 and frame.attrs["truncated"] is True
+
+
+def test_variant_lookups(three: LocalSource) -> None:
+    by_rsid = og.variants_rsid(["rs5000"], releases=["OGS-D"], client=three)
+    assert list(by_rsid["alid"]) == ["1:5000:A:C", "1:5000:C:G"]
+    assert list(by_rsid.columns) == [
+        "alid",
+        "chromosome",
+        "position",
+        "effect_allele",
+        "other_allele",
+        "rsid",
+        "store_id",
+        "release_id",
+    ]
+    assert len(og.variants_rsid("rs5000", client=three)) == 6  # every Store
+    at = og.variants_chrpos(["1:5000"], releases=["OGS-H"], client=three)
+    assert list(at["alid"]) == ["1:5000:A:C", "1:5000:C:G", "1:5000:C:T"]
+    assert og.variants_chrpos("chr1:5000", releases=["OGS-H"], client=three).shape[0] == 3
+
+
+def test_gwasinfo(three: LocalSource) -> None:
+    frame = og.gwasinfo(["bmi_irn", "OGS-R:trait_a", "nope"], client=three)
+    assert list(frame["id"]) == ["OGS-D:bmi_irn", "OGS-H:bmi_irn", "OGS-R:trait_a"]
+    assert frame["sample_size"].iloc[0] == 500000
+    assert frame.attrs["not_found"] == ["nope"] and frame.attrs["source"] == "local"
+    assert "analysis_index" not in frame.columns
+    listing = og.gwasinfo(client=three)
+    assert len(listing) == 3 and listing.attrs["total"] == 3
+    assert len(og.gwasinfo(client=three, limit=1)) == 1
+    only = og.gwasinfo("bmi_irn", releases=["OGS-H"], client=three)
+    assert list(only["id"]) == ["OGS-H:bmi_irn"]
+    with pytest.raises(RequestError, match="1 analyses not found: nope"):
+        og.gwasinfo(["nope"], strict=True, client=three)
+    with pytest.raises(ValueError, match="release_set"):
+        og.gwasinfo(release_set="all_configured_releases", client=three)
+    with pytest.raises(ValueError, match="limit"):
+        og.gwasinfo(client=three, limit=0)
+
+
+def test_analyses_tsv_values() -> None:
+    from opengwaspy.local._source import _number
+
+    assert _number("") is None
+    assert _number("500000") == 500000 and isinstance(_number("500000"), int)
+    assert _number("0.5") == 0.5 and _number("1e-3") == 0.001
+    assert _number("sd") == "sd" and _number("nan") == "nan"

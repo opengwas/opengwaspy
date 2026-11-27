@@ -40,6 +40,10 @@ class Source(Protocol):
         """The API build that answers, or ``None`` for a Local Source."""
         ...
 
+    def batches(self) -> pd.DataFrame:
+        """The releases answered, one row each, with their ``capabilities``."""
+        ...
+
     def served_releases(self) -> dict[str, list[str]]:
         """The release IDs answered, by Store ID."""
         ...

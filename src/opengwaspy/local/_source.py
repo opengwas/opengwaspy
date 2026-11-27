@@ -8,10 +8,10 @@ import math
 import re
 import sys
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import pandas as pd
 
@@ -24,6 +24,8 @@ if TYPE_CHECKING:
 
 __all__ = ["LocalExtraMissing", "LocalRelease", "LocalSource", "local"]
 
+T = TypeVar("T")
+
 #: The ogquery versions this opengwaspy reads with (below 1.0 a minor version may break).
 OGQUERY_SPEC = ">=0.5,<0.6"
 #: Store format versions a Local Source reads.
@@ -35,6 +37,9 @@ _UNBOUNDED = 10**12
 _OPENGWAS_ID = re.compile(r"^[a-z0-9]+-[a-z]-[A-Za-z0-9_]+$")
 
 _ASSOCIATIONS = ("api/associations", "api/associations/range", "api/associations/analysis")
+_VARIANTS = {"api/variants/rsid": "rsids", "api/variants/chrpos": "positions"}
+#: The variant fields of a variant lookup's rows, as the API gives them.
+_VARIANT_FIELDS = ("alid", "chromosome", "position", "effect_allele", "other_allele", "rsid")
 
 
 class LocalExtraMissing(OpenGWASError, ImportError):
@@ -83,6 +88,22 @@ class LocalRelease:
     completion_state: str
     query: Any = field(repr=False)
     analyses: dict[str, dict[str, Any]] = field(repr=False, default_factory=dict)
+    top_hit_thresholds: tuple[float, ...] = ()
+    phewas: bool = False
+    variants_rsid: bool = False
+
+    @property
+    def capabilities(self) -> dict[str, Any]:
+        """What the release answers, in the API's ``capabilities`` terms."""
+        return {
+            "gwasinfo": bool(self.analyses),
+            "associations": True,
+            "top_hits": bool(self.top_hit_thresholds),
+            "top_hit_thresholds": list(self.top_hit_thresholds),
+            "variants_rsid": self.variants_rsid,
+            "variants_chrpos": True,
+            "phewas": self.phewas,
+        }
 
     def close(self) -> None:
         """Close the release's reader, letting go of its files."""
@@ -113,6 +134,13 @@ def _open(path: str | Path) -> LocalRelease:
         )
     query = facade.query_release(release)
     analyses = {str(row["analysis_id"]): row for row in query.analyses_table().values()}
+    top_hits = _ogquery("ogquery.top_hits")
+    tiers = where / "data.zarr" / top_hits.TOP_HIT_GROUP
+    axis = release.variant_axis(aliases=False)
+    try:
+        rsid_lookup = axis.rsid_index is not None
+    finally:
+        axis.close()
     return LocalRelease(
         store_id=str(manifest.store_id),
         release_id=str(manifest.release_id),
@@ -122,7 +150,21 @@ def _open(path: str | Path) -> LocalRelease:
         completion_state=str(manifest.completion_state),
         query=query,
         analyses=analyses,
+        top_hit_thresholds=tuple(
+            t for t in top_hits.TOP_HIT_THRESHOLDS if (tiers / top_hits.threshold_key(t)).is_dir()
+        ),
+        phewas=_phewas_indexed(where),
+        variants_rsid=rsid_lookup,
     )
+
+
+def _phewas_indexed(path: Path) -> bool:
+    """Whether a variant can be read across every Analysis without a scan (as the API decides)."""
+    if not (path / "data.zarr").is_dir():
+        return False
+    if not (path / _ogquery("ogquery.csr").RAGGED_ZARR_PATH).is_dir():
+        return True
+    return bool(_ogquery("ogquery.by_variant").has_variant_index(path))
 
 
 def local(paths: str | Path | Iterable[str | Path]) -> LocalSource:
@@ -223,14 +265,85 @@ class LocalSource:
             ``attrs`` (``source`` is ``"local"``; there is no ``job_id``).
         """
         name = endpoint.strip("/")
-        if name not in _ASSOCIATIONS:
-            raise LocalUnsupported(f"{name} is not available on a Local Source yet")
-        releases = self._select(body)
-        rows = _translated(lambda: self._associations(name, body, releases))
-        rows.sort(key=_row_key)
+        metadata: dict[str, Any] = {}
+        rows: list[dict[str, Any]]
+        if name in _ASSOCIATIONS:
+            releases = self._select(body)
+            rows = _translated(lambda: self._associations(name, body, releases))
+            rows.sort(key=_row_key)
+        elif name == "api/tophits":
+            if body.get("clump") is not None:
+                raise LocalUnsupported(
+                    "clumped top hits are not available on a Local Source yet (#115); "
+                    "leave out clump for the unclumped hits"
+                )
+            releases = self._select(body)
+            rows, metadata = _translated(lambda: self._top_hits(body, releases))
+        elif name == "api/phewas":
+            releases = self._select(body)
+            rows, metadata = _translated(lambda: self._phewas(body, releases))
+        elif name in _VARIANTS:
+            releases = self._select(body)
+            rows = _translated(lambda: self._variants(name, body, releases))
+        else:
+            raise LocalUnsupported(f"{name} is not available on a Local Source")
         frame: pd.DataFrame = pd.DataFrame.from_records(rows) if rows else pd.DataFrame()
         frame.attrs.update(self._provenance(name, [r for r, _ in releases]))
+        frame.attrs["metadata"] = metadata
         return frame
+
+    def batches(self) -> pd.DataFrame:
+        """The open releases, one row each, as the API's ``batches()`` lists them.
+
+        Each row has ``store_id``, ``release_id``, ``analysis_count`` and
+        ``capabilities``, and, locally, ``format_version``, ``layout``,
+        ``completion_state`` and ``path``.
+        """
+        frame: pd.DataFrame = pd.DataFrame.from_records(
+            [
+                {
+                    "release_id": r.release_id,
+                    "store_id": r.store_id,
+                    "analysis_count": len(r.analyses),
+                    "capabilities": r.capabilities,
+                    "format_version": r.format_version,
+                    "layout": r.layout,
+                    "completion_state": r.completion_state,
+                    "path": str(r.path),
+                }
+                for r in self.releases
+            ]
+        )
+        frame.attrs["opengwas_batches"] = []
+        return frame
+
+    def gwasinfo(
+        self,
+        ids: Sequence[str] | None = None,
+        *,
+        releases: Sequence[Mapping[str, str]] | None = None,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Analyses' ``analyses.tsv`` rows, as the API's ``gwasinfo`` rows, and IDs not found.
+
+        Without ``ids``, every analysis of the (selected) releases, by Store.
+        A bare ID held by several releases gives each one's row, as the API does.
+        """
+        candidates = self._releases_named(releases)
+        if ids is None:
+            return [_analysis_row(r, a) for r in candidates for a in r.analyses.values()], []
+        rows: list[dict[str, Any]] = []
+        not_found: list[str] = []
+        for value in dict.fromkeys(ids):
+            store, sep, bare = value.partition(":")
+            found = [r for r in candidates if value in r.analyses]
+            key = value
+            if not found and sep:
+                found = [r for r in candidates if r.store_id == store and bare in r.analyses]
+                key = bare
+            if not found:
+                not_found.append(value)
+            rows.extend(_analysis_row(r, r.analyses[key]) for r in found)
+        return rows, not_found
 
     def query_many(
         self, queries: Iterable[Query], *, max_in_flight: int | None = None
@@ -243,28 +356,7 @@ class LocalSource:
 
     def _select(self, body: Mapping[str, Any]) -> list[tuple[LocalRelease, list[str] | None]]:
         """The releases a request reads, each with its own analysis IDs (``None``: all)."""
-        candidates = self.releases
-        named = body.get("releases")
-        if named:
-            candidates = []
-            for ref in named:
-                match = next(
-                    (
-                        r
-                        for r in self.releases
-                        if r.store_id == ref.get("store_id")
-                        and r.release_id == ref.get("release_id")
-                    ),
-                    None,
-                )
-                if match is None:
-                    raise RequestError(
-                        404,
-                        "release_not_found",
-                        f"{ref.get('store_id')}/{ref.get('release_id')} is not open in this "
-                        f"Local Source ({self!r})",
-                    )
-                candidates.append(match)
+        candidates = self._releases_named(body.get("releases"))
         requested = body.get("analyses")
         if not requested:
             return [(r, None) for r in candidates]
@@ -275,6 +367,30 @@ class LocalSource:
             if analysis not in ids:
                 ids.append(analysis)
         return [(r, wanted[r.store_id]) for r in candidates if r.store_id in wanted]
+
+    def _releases_named(self, named: Sequence[Mapping[str, Any]] | None) -> list[LocalRelease]:
+        """The open releases ``named`` refers to (every one if ``None``)."""
+        if not named:
+            return list(self.releases)
+        chosen: list[LocalRelease] = []
+        for ref in named:
+            match = next(
+                (
+                    r
+                    for r in self.releases
+                    if r.store_id == ref.get("store_id") and r.release_id == ref.get("release_id")
+                ),
+                None,
+            )
+            if match is None:
+                raise RequestError(
+                    404,
+                    "release_not_found",
+                    f"{ref.get('store_id')}/{ref.get('release_id')} is not open in this "
+                    f"Local Source ({self!r})",
+                )
+            chosen.append(match)
+        return chosen
 
     def _analysis(self, value: str, candidates: Sequence[LocalRelease]) -> tuple[LocalRelease, str]:
         store, sep, bare = value.partition(":")
@@ -332,13 +448,118 @@ class LocalSource:
                 if analyses is not None:
                     keep = set(analyses)
                     found = (row for row in found if row.get("analysis_id") in keep)
+            rows.extend(_rows(release, found))
+        return rows
+
+    def _top_hits(
+        self, body: Mapping[str, Any], releases: Sequence[tuple[LocalRelease, list[str] | None]]
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Each analysis's hits at ``threshold``, strongest ``limit`` first (ogdb-api#24, #61)."""
+        threshold = float(body.get("threshold", 5e-8))
+        limit = int(body.get("limit", 1000))
+        observed_only = bool(body.get("observed_only", False))
+        rows: list[dict[str, Any]] = []
+        capped = False
+        for release, analyses in releases:
+            tier = _index_tier(threshold, release.top_hit_thresholds)
+            if tier is None:
+                indexed = list(release.top_hit_thresholds)
+                loosest = f"{max(indexed):g}" if indexed else "none: it has no Top-Hit Index"
+                raise RequestError(
+                    400,
+                    "unsupported_threshold",
+                    f"threshold must be at most the loosest p-value the Top-Hit Index of "
+                    f"{release.store_id} holds ({loosest})",
+                    extra={"indexed_thresholds": indexed},
+                )
+            for analysis in analyses if analyses is not None else [None]:
+                raw = release.query.top_hits(
+                    analysis_id=analysis, threshold=tier, observed_only=observed_only
+                )
+                kept, cut = _rank_per_analysis(_at_threshold(raw, threshold, tier), limit)
+                capped = capped or cut
+                rows.extend(_rows(release, release.query.resolve(kept, include_variant_info=True)))
+        rows.sort(key=lambda r: (*_row_key(r)[:3], -_strength(r), *_row_key(r)[3:]))
+        meta = {
+            "threshold": threshold,
+            "observed_only": observed_only,
+            "total": len(rows),
+            "truncated": capped,
+        }
+        return rows, meta
+
+    def _phewas(
+        self, body: Mapping[str, Any], releases: Sequence[tuple[LocalRelease, list[str] | None]]
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """One variant across the releases' analyses, cut at ``threshold`` before resolving."""
+        variant = str(body["variant"])
+        threshold = float(body.get("threshold", 1e-8))
+        limit = int(body.get("limit", 1000))
+        observed_only = bool(body.get("observed_only", True))
+        rows: list[dict[str, Any]] = []
+        total = 0
+        for release, analyses in releases:
+            if not release.phewas:
+                continue  # as the API, which offers PheWAS only on indexed releases
+            raw = _significant(
+                release.query.phewas(variant, observed_only=observed_only), threshold
+            )
+            found = _rows(release, release.query.resolve(raw, include_variant_info=True))
+            if analyses is not None:
+                keep = set(analyses)
+                found = [row for row in found if row.get("analysis_id") in keep]
+            total += len(found)
+            rows.extend(found[:limit])
+        rows.sort(key=_row_key)
+        rows = rows[:limit]
+        meta = {
+            "variant": variant,
+            "threshold": threshold,
+            "observed_only": observed_only,
+            "total": total,
+            "returned": len(rows),
+            "truncated": total > len(rows),
+        }
+        return rows, meta
+
+    def _variants(
+        self,
+        endpoint: str,
+        body: Mapping[str, Any],
+        releases: Sequence[tuple[LocalRelease, list[str] | None]],
+    ) -> list[dict[str, Any]]:
+        """Variants by rsID or ``chromosome:position``, as the API's lookups filter them."""
+        values = [str(v) for v in body.get(_VARIANTS[endpoint]) or []]
+        rows: list[dict[str, Any]] = []
+        for release, _ in releases:
+            query = release.query
+            if endpoint == "api/variants/rsid":
+                if not release.variants_rsid:
+                    continue
+                wanted = set(values)
+                found = query.variants(sorted(wanted))
+                keep = [r for _, r in sorted(found.items()) if r.get("rsid") in wanted]
+            else:
+                wanted = {v.removeprefix("chr") for v in values}
+                found = {}
+                for value in sorted(wanted):
+                    chromosome, _, position = value.rpartition(":")
+                    if chromosome and position.isdigit():
+                        found.update(
+                            query.variants_in_range(chromosome, int(position), int(position))
+                        )
+                keep = [
+                    r
+                    for _, r in sorted(found.items())
+                    if f"{r['chromosome']}:{r['position']}" in wanted
+                ]
             rows.extend(
                 {
-                    **_json_values(row),
+                    **{name: r.get(name) for name in _VARIANT_FIELDS},
                     "store_id": release.store_id,
                     "release_id": release.release_id,
                 }
-                for row in found
+                for r in keep
             )
         return rows
 
@@ -387,13 +608,105 @@ def _row_key(row: Mapping[str, Any]) -> tuple[Any, ...]:
     )
 
 
-def _translated(answer: Any) -> list[dict[str, Any]]:
+def _translated(answer: Callable[[], T]) -> T:
     """Run ``answer()``, turning ogquery's refusals into opengwaspy's typed errors."""
     analyses = _ogquery("ogquery.analyses")
     identity = _ogquery("ogquery.identity")
     try:
-        return list(answer())
+        return answer()
     except analyses.UnknownAnalysisError as exc:
         raise RequestError(404, "analysis_not_found", str(exc)) from exc
     except identity.VariantNormalisationError as exc:
         raise RequestError(400, "invalid_query", str(exc)) from exc
+
+
+def _rows(release: LocalRelease, found: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Resolved reader rows as API rows: JSON values, then the Store and release."""
+    return [
+        {**_json_values(row), "store_id": release.store_id, "release_id": release.release_id}
+        for row in found
+    ]
+
+
+def _strength(row: Mapping[str, Any]) -> float:
+    """|z|, for ranking; a missing z ranks last."""
+    z = row.get("z")
+    return abs(float(z)) if isinstance(z, (int, float)) and math.isfinite(z) else -1.0
+
+
+def _index_tier(threshold: float, indexed: Sequence[float]) -> float | None:
+    """The tightest indexed tier at or above ``threshold`` (ogdb-api#61)."""
+    looser = [tier for tier in indexed if tier >= threshold]
+    return min(looser) if looser else None
+
+
+def _z_cut(record: Any, threshold: float) -> Any:
+    """``record``'s associations with two-sided p <= ``threshold``: |z| >= z_critical."""
+    import numpy as np
+
+    z_critical = _ogquery("ogquery.stats").z_critical
+    strength = np.abs(np.asarray(record["z"], dtype=np.float64))
+    return record.take(np.flatnonzero(strength >= z_critical(threshold)))
+
+
+def _at_threshold(record: Any, threshold: float, tier: float) -> Any:
+    """The hits of a ``tier`` read with p <= ``threshold``."""
+    if threshold == tier or len(record["z"]) == 0:
+        return record
+    return _z_cut(record, threshold)
+
+
+def _significant(record: Any, threshold: float) -> Any:
+    """A PheWAS read cut at ``threshold`` before resolving; 1 keeps everything (ogdb-api#145)."""
+    if threshold >= 1 or len(record["z"]) == 0:
+        return record
+    return _z_cut(record, threshold)
+
+
+def _rank_per_analysis(record: Any, limit: int) -> tuple[Any, bool]:
+    """Each analysis's ``limit`` hits with the largest |z|, ties in genome order.
+
+    Also whether any analysis had more than ``limit`` (ogdb-api#24).
+    """
+    import numpy as np
+
+    count = len(record["z"])
+    if count == 0:
+        return record, False
+    analysis = np.asarray(record["analysis_index"])
+    strength = np.abs(np.asarray(record["z"], dtype=np.float64))
+    strength = np.where(np.isnan(strength), -1.0, strength)
+    order = np.lexsort((np.asarray(record["variant_index"]), -strength, analysis))
+    grouped = analysis[order]
+    starts = np.r_[0, np.flatnonzero(grouped[1:] != grouped[:-1]) + 1]
+    sizes = np.diff(np.r_[starts, count])
+    rank = np.arange(count) - np.repeat(starts, sizes)
+    return record.take(order[rank < limit]), bool((sizes > limit).any())
+
+
+def _number(text: str) -> Any:
+    """An ``analyses.tsv`` value: a number where it is one, ``None`` where it is empty."""
+    if text == "":
+        return None
+    try:
+        value = float(text)
+    except ValueError:
+        return text
+    if not math.isfinite(value):
+        return text
+    integral = value.is_integer() and "." not in text and "e" not in text.lower()
+    return int(value) if integral else value
+
+
+def _analysis_row(release: LocalRelease, row: Mapping[str, Any]) -> dict[str, Any]:
+    """An ``analyses.tsv`` row as a ``gwasinfo`` row (the API's rows without a catalog)."""
+    values = {k: _number(v) if isinstance(v, str) else v for k, v in row.items()}
+    values.pop("analysis_index", None)
+    analysis = str(row["analysis_id"])
+    return {
+        "id": f"{release.store_id}:{analysis}",
+        **values,
+        "analysis_id": analysis,
+        "store_id": release.store_id,
+        "release_id": release.release_id,
+    }

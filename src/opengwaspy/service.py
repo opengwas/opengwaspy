@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
 from opengwaspy.client import Client, get_client
 from opengwaspy.source import require_api
+
+if TYPE_CHECKING:
+    from opengwaspy.local import LocalSource
 
 __all__ = ["batches", "status", "user"]
 
@@ -33,7 +36,7 @@ def user(*, client: Client | None = None) -> dict[str, Any]:
     return require_api(client or get_client(), "opengwaspy.user").user()
 
 
-def batches(*, client: Client | None = None) -> pd.DataFrame:
+def batches(*, client: Client | LocalSource | None = None) -> pd.DataFrame:
     """The data releases (Stores) the API serves, one row each.
 
     In OpenGWAS, a batch was an ID prefix such as ``ieu-a``. In the Data API, a
@@ -42,7 +45,11 @@ def batches(*, client: Client | None = None) -> pd.DataFrame:
     batches the API resolves (``ukb-b``, ``ebi-a``, ``eqtl-a``, ``finn-b``) to
     the Stores they reach.
 
+    On a Local Source, the open releases, with their ``format_version``,
+    ``layout``, ``completion_state`` and ``path``.
+
     Args:
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source (:func:`~opengwaspy.local`);
+            defaults to :func:`~opengwaspy.get_client`.
     """
-    return require_api(client or get_client(), "opengwaspy.batches").batches()
+    return (client or get_client()).batches()
