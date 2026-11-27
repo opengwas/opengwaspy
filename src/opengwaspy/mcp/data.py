@@ -16,9 +16,24 @@ from opengwaspy.associations import associations, associations_range
 from opengwaspy.compat._columns import ieugwas_columns
 from opengwaspy.compat._ids import Resolved, resolve
 from opengwaspy.hits import phewas, tophits
-from opengwaspy.mcp.formatting import ColumnChoice, MaxRows, TableResult, table_result
+from opengwaspy.mcp.formatting import (
+    ColumnChoice,
+    MaxRows,
+    Overwrite,
+    SaveAs,
+    TableResult,
+    table_result,
+)
 from opengwaspy.mcp.metadata import resolution_notes
-from opengwaspy.mcp.server import READ_ONLY, Session, call, call_noting, session_of
+from opengwaspy.mcp.server import (
+    READ_ONLY,
+    Session,
+    arguments,
+    capture_warnings,
+    deliver,
+    session_of,
+    watched,
+)
 from opengwaspy.variants import variants_chrpos, variants_rsid
 
 __all__ = ["ASSOCIATION_COLUMNS", "REGION_MAX_BP", "register"]
@@ -40,6 +55,8 @@ ASSOCIATION_COLUMNS = (
 )
 #: The widest region ``region_associations`` returns, in base pairs.
 REGION_MAX_BP = 1_000_000
+#: The widest region with ``save_as``: the API's window for one range job.
+REGION_SAVED_MAX_BP = 10_000_000
 
 TOPHITS_ANALYSES = 10
 LOOKUP_VARIANTS = 100
@@ -49,6 +66,8 @@ REGION_ANALYSES = 5
 TOPHITS_LIMIT = 1000
 #: Most PheWAS rows fetched per job (each job covers up to 10 releases).
 PHEWAS_LIMIT = 1000
+#: Most PheWAS rows per job with ``save_as`` (the API's maximum).
+PHEWAS_SAVED_LIMIT = 10_000
 
 _RSID = re.compile(r"rs[0-9]+", re.IGNORECASE)
 _CHRPOS = re.compile(r"(chr)?[0-9A-Za-z]+:[0-9]+", re.IGNORECASE)
@@ -145,7 +164,10 @@ def register(server: MCPServer[Session]) -> None:
         ] = None,
         max_rows: MaxRows = 50,
         columns: ColumnChoice = "default",
+        save_as: SaveAs = None,
+        overwrite: Overwrite = False,
     ) -> TableResult:
+        args = arguments(locals())
         session = session_of(ctx)
         client = session.require_client()
         if not clump and (r2 is not None or kb is not None or ancestry is not None):
@@ -169,7 +191,10 @@ def register(server: MCPServer[Session]) -> None:
             )
             return _association_frame(frame, resolved), resolved
 
-        frame, resolved = await call(session, fetch)
+        done = await watched(session, ctx, fetch, (top_hits, args))
+        if isinstance(done, TableResult):
+            return session.finish(done)
+        frame, resolved = done
         notes, _ = resolution_notes(resolved)
         if not resolved.ids:
             raise _no_analyses(notes)
@@ -200,7 +225,7 @@ def register(server: MCPServer[Session]) -> None:
             notes=notes,
             provenance=prov,
         )
-        return session.finish(result)
+        return await deliver(session, result, frame, tool="top_hits", args=args)
 
     @server.tool(
         name="associations",
@@ -224,7 +249,10 @@ def register(server: MCPServer[Session]) -> None:
         r2: Annotated[float, Field(gt=0, le=1, description="Least r2 for a proxy.")] = 0.8,
         max_rows: MaxRows = 50,
         columns: ColumnChoice = "default",
+        save_as: SaveAs = None,
+        overwrite: Overwrite = False,
     ) -> TableResult:
+        args = arguments(locals())
         session = session_of(ctx)
         client = session.require_client()
         if not proxies:
@@ -236,16 +264,27 @@ def register(server: MCPServer[Session]) -> None:
                 frame = associations(variants, resolved.ids, client=client)
                 return _association_frame(frame, resolved), resolved
 
-            frame, resolved = await call(session, fetch)
+            done = await watched(session, ctx, fetch, (associations_tool, args))
+            if isinstance(done, TableResult):
+                return session.finish(done)
+            frame, resolved = done
             notes, _ = resolution_notes(resolved)
             if not resolved.ids:
                 raise _no_analyses(notes)
             prov: dict[str, Any] = {"opengwas_ids": resolved.opengwas, "proxies": False}
             extra: list[str] = []
         else:
-            frame, notes = await call_noting(
-                session, lambda: compat.associations(variants, analysis_ids, proxies=1, r2=r2)
+            noted = await watched(
+                session,
+                ctx,
+                capture_warnings(
+                    lambda: compat.associations(variants, analysis_ids, proxies=1, r2=r2)
+                ),
+                (associations_tool, args),
             )
+            if isinstance(noted, TableResult):
+                return session.finish(noted)
+            frame, notes = noted
             prov = {"opengwas_ids": frame.attrs.get("opengwas_ids"), "proxies": True, "r2": r2}
             extra = ["proxy", "target_snp", "proxy_snp", "proxy_r2"]
         found = frame["id"].nunique() if "id" in frame.columns else 0
@@ -261,13 +300,14 @@ def register(server: MCPServer[Session]) -> None:
             notes=notes,
             provenance=prov,
         )
-        return session.finish(result)
+        return await deliver(session, result, frame, tool="associations", args=args)
 
     @server.tool(
         name="region_associations",
         title="Associations in a region",
         description=(
-            f"Every association in a genomic region of up to {REGION_MAX_BP // 1000:,} kb, in "
+            f"Every association in a genomic region of up to {REGION_MAX_BP // 1000:,} kb "
+            f"({REGION_SAVED_MAX_BP // 1000:,} kb with save_as), in "
             f"up to {REGION_ANALYSES} analyses, in position order. Positions are one-based and "
             "inclusive, on the analyses' genome build (GRCh38 in most Stores)."
         ),
@@ -281,15 +321,20 @@ def register(server: MCPServer[Session]) -> None:
         analysis_ids: Annotated[AnalysisIds, Field(max_length=REGION_ANALYSES)],
         max_rows: MaxRows = 50,
         columns: ColumnChoice = "default",
+        save_as: SaveAs = None,
+        overwrite: Overwrite = False,
     ) -> TableResult:
+        args = arguments(locals())
         session = session_of(ctx)
         client = session.require_client()
         if end < start:
             raise ToolError(f"end ({end}) is before start ({start})")
-        if end - start + 1 > REGION_MAX_BP:
+        widest = REGION_SAVED_MAX_BP if save_as else REGION_MAX_BP
+        if end - start + 1 > widest:
             raise ToolError(
                 f"the region is {end - start + 1:,} bp; this tool returns at most "
-                f"{REGION_MAX_BP:,} bp. Ask for a narrower region, or several."
+                f"{REGION_MAX_BP:,} bp, or {REGION_SAVED_MAX_BP:,} bp with save_as. "
+                "Ask for a narrower region, or several."
             )
 
         def fetch() -> tuple[pd.DataFrame, Resolved]:
@@ -299,7 +344,10 @@ def register(server: MCPServer[Session]) -> None:
             frame = associations_range(chromosome, start, end, resolved.ids, client=client)
             return _association_frame(frame, resolved), resolved
 
-        frame, resolved = await call(session, fetch)
+        done = await watched(session, ctx, fetch, (region_associations, args))
+        if isinstance(done, TableResult):
+            return session.finish(done)
+        frame, resolved = done
         notes, _ = resolution_notes(resolved)
         if not resolved.ids:
             raise _no_analyses(notes)
@@ -319,7 +367,7 @@ def register(server: MCPServer[Session]) -> None:
             notes=notes,
             provenance={"opengwas_ids": resolved.opengwas},
         )
-        return session.finish(result)
+        return await deliver(session, result, frame, tool="region_associations", args=args)
 
     @server.tool(
         name="phewas",
@@ -338,17 +386,24 @@ def register(server: MCPServer[Session]) -> None:
         ] = 1e-8,
         max_rows: MaxRows = 50,
         columns: ColumnChoice = "default",
+        save_as: SaveAs = None,
+        overwrite: Overwrite = False,
     ) -> TableResult:
+        args = arguments(locals())
         session = session_of(ctx)
         client = session.require_client()
 
         def fetch() -> pd.DataFrame:
-            frame = phewas(variant, threshold=threshold, limit=PHEWAS_LIMIT, client=client)
+            limit = PHEWAS_SAVED_LIMIT if save_as else PHEWAS_LIMIT
+            frame = phewas(variant, threshold=threshold, limit=limit, client=client)
             if "log10_p" in frame.columns:
                 frame = frame.sort_values("log10_p", kind="stable")
             return _association_frame(frame, None)
 
-        frame = await call(session, fetch)
+        done = await watched(session, ctx, fetch, (phewas_tool, args))
+        if isinstance(done, TableResult):
+            return session.finish(done)
+        frame = done
         total = frame.attrs.get("total")
         total = int(total) if total is not None else len(frame)
         notes = []
@@ -368,7 +423,7 @@ def register(server: MCPServer[Session]) -> None:
             notes=notes,
             provenance={"threshold": frame.attrs.get("threshold", threshold)},
         )
-        return session.finish(result)
+        return await deliver(session, result, frame, tool="phewas", args=args)
 
     @server.tool(
         name="variant_info",
@@ -392,7 +447,10 @@ def register(server: MCPServer[Session]) -> None:
         ],
         max_rows: MaxRows = 50,
         columns: ColumnChoice = "default",
+        save_as: SaveAs = None,
+        overwrite: Overwrite = False,
     ) -> TableResult:
+        args = arguments(locals())
         session = session_of(ctx)
         client = session.require_client()
         values = [v.strip() for v in variants]
@@ -419,7 +477,10 @@ def register(server: MCPServer[Session]) -> None:
                 frame["stores"] = [int(stores[a]) for a in frame["alid"]]
             return frame
 
-        frame = await call(session, fetch)
+        done = await watched(session, ctx, fetch, (variant_info, args))
+        if isinstance(done, TableResult):
+            return session.finish(done)
+        frame = done
         notes = _not_found(values, frame)
         result = table_result(
             frame,
@@ -440,7 +501,7 @@ def register(server: MCPServer[Session]) -> None:
             ),
             notes=notes,
         )
-        return session.finish(result)
+        return await deliver(session, result, frame, tool="variant_info", args=args)
 
 
 def _not_found(values: list[str], frame: pd.DataFrame) -> list[str]:

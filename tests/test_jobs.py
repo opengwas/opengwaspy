@@ -360,3 +360,48 @@ def test_zero_timeout_never_sleeps(transport: Transport, clock: FakeClock) -> No
     with pytest.raises(JobTimeout, match="still queued after 0 s"):
         job.wait(timeout=0)
     assert clock.sleeps == []
+
+
+@respx.mock
+def test_observer_sees_submission_polls_and_pages(transport: Transport) -> None:
+    from opengwaspy.jobs import observe
+
+    respx.post(f"{BASE}/api/tophits").respond(202, json=accepted("j1", poll_after=0))
+    respx.get(f"{BASE}/api/jobs/j1").mock(
+        side_effect=[ok(status("j1", "running")), ok(status("j1", "succeeded"))]
+    )
+    respx.get(f"{BASE}/api/jobs/j1/result").respond(json=page(ROWS))
+    events: list[str] = []
+
+    class Recorder:
+        def submitted(self, job: Job) -> None:
+            events.append(f"submitted {job.job_id}")
+
+        def polled(self, job: Job, status: JobStatus) -> None:
+            events.append(status.status)
+
+        def page(self, job: Job, page: ResultPage) -> None:
+            events.append(f"page {page.page_index}")
+
+    with observe(Recorder()):
+        Job.submit(transport, "/api/tophits", {"analyses": ["a"]}).to_frame()
+    Job.from_id(transport, "j1")  # outside the block: not seen
+    assert events == ["submitted j1", "running", "succeeded", "page 0"]
+
+
+@respx.mock
+def test_observer_can_stop_the_work(transport: Transport) -> None:
+    from opengwaspy.jobs import observe
+
+    respx.get(f"{BASE}/api/jobs/j1").respond(json=status("j1", "running", poll_after=1.0))
+
+    class Stop:
+        def submitted(self, job: Job) -> None: ...
+
+        def polled(self, job: Job, status: JobStatus) -> None:
+            raise JobTimeout(job.job_id, status.status, 0)
+
+        def page(self, job: Job, page: ResultPage) -> None: ...
+
+    with observe(Stop()), pytest.raises(JobTimeout):
+        Job.from_id(transport, "j1").wait()

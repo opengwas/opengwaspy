@@ -9,6 +9,37 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #93: MCP long jobs, get_job_result, save_as and cancellation
+
+- **`opengwaspy.jobs.observe(observer)`:** a thread-local hook, told of each job a query submits (`submitted`), each status (`polled`) and each checked page (`page`), from `Job.submit`, `Job.status` and `Job.pages`. That covers `Job.wait`, `run_many` and every query function. An observer may raise to stop the work.
+- **`opengwaspy.mcp.waiting.Watch`**, the observer each job-backed MCP tool runs under:
+  - reports each step through `Context.report_progress` (submitted, queued or running with queue position, page n of m);
+  - at the wait limit (`OPENGWAS_MCP_WAIT_SECONDS`, default 60), the next poll of an unfinished job raises `JobTimeout`. The tool then answers `status: "running"` with `job_ids` and `poll_after_seconds`, and the jobs keep running. A `BatchError` made only of such timeouts counts too;
+  - records every job, so a multi-job call returns all its IDs.
+- **`get_job_result(job_id, max_rows, columns, save_as, overwrite)`:**
+  - re-runs the original tool call, kept under each of its job IDs, with any new `max_rows`, `columns` and `save_as`. The API answers a repeated query with its existing job, so the call picks up the same jobs or their finished results, with the tool's own formatting;
+  - for a job this server did not start, it returns the job's raw rows.
+- **Cancellation:** the worker thread runs with `abandon_on_cancel`. On cancellation, the call's jobs are cancelled (`DELETE /api/jobs/{id}`, shielded), and the thread stops at its next step (`Abandoned`, a `BaseException`).
+- **`save_as`** on every data and LD tool (`opengwaspy.mcp.files`):
+  - writes the full result (every row and column) as CSV, and a `.json` sidecar beside it: the tool, its arguments, summary, notes, provenance, opengwaspy version and time, scrubbed of credentials;
+  - names are reduced to `[A-Za-z0-9._-]` and given `.csv`;
+  - absolute paths, `~`, drive letters, separators, `..` and symbolic links are refused;
+  - an existing file is replaced only with `overwrite`;
+  - writes go through a temporary file opened with `O_EXCL|O_NOFOLLOW`, then `os.replace`.
+
+  With `save_as`, `region_associations` takes up to 10 Mb (one API range job's window) and `phewas` up to 10,000 rows per job.
+- **Bug fixed in passing:** tool arguments are taken from the function's parameters only, because `locals()` in a nested function also holds its free variables.
+- **Tests:**
+  - `tests/test_mcp_waiting.py` (28): running then resume, with progress messages; resume with new `max_rows` and `save_as`; an unknown job, finished and running; CSV and sidecar; no overwrite without `overwrite`; widened limits; nine unsafe names; symlinks; cancellation; the watch's rules; every job-backed tool answering `running`;
+  - `tests/test_jobs.py`: the observer (2).
+
+  ruff, mypy strict (71 files) and `pytest` (364 passed, 99% coverage) pass.
+- **Live (stdio, 6433, LD tools):**
+  - `ld_proxies` with `save_as` wrote `proxies.csv` (10 rows, 784 bytes) and its sidecar, with the developer key in neither;
+  - progress messages arrived ("submitted job … (the API already had it)", "succeeded", "read result page 1 of 1").
+
+  With `OPENGWAS_MCP_WAIT_SECONDS=0`, fresh LD jobs still finished by their first poll, so the running path was not seen live; it is covered offline. Agents may not load 6433 with slow queries.
+
 ## 2026-11-27 - #83: job results checked against their manifest
 
 - `Job.pages()` now requires each page to be the next in sequence (`page_index` 0, 1, …) and to start at the next row (`row_offset`). It takes `page_count` and `total_rows` (or `row_count`) from the manifest in the job's status, or else from the first page. When those are declared, it refuses with `ProtocolError`:

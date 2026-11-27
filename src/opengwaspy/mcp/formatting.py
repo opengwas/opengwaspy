@@ -10,12 +10,16 @@ from typing import Annotated, Any, Literal
 import pandas as pd
 from pydantic import BaseModel, Field
 
+from opengwaspy.mcp.files import SavedFile
+
 __all__ = [
     "MAX_ROWS",
     "METADATA_COLUMNS",
     "PROVENANCE_KEYS",
     "ColumnChoice",
     "MaxRows",
+    "Overwrite",
+    "SaveAs",
     "TableResult",
     "table_result",
 ]
@@ -54,6 +58,18 @@ Columns = Literal["default", "all"]
 MaxRows = Annotated[
     int, Field(ge=1, le=MAX_ROWS, description=f"The most rows to return (1-{MAX_ROWS}).")
 ]
+#: A tool's ``save_as`` argument.
+SaveAs = Annotated[
+    str | None,
+    Field(
+        description=(
+            "Also save the full result (every row and column) as CSV under this file name, "
+            "in the server's results folder, with a .json provenance file beside it."
+        )
+    ),
+]
+#: A tool's ``overwrite`` argument.
+Overwrite = Annotated[bool, Field(description="Replace a saved file of the same name.")]
 #: A tool's ``columns`` argument.
 ColumnChoice = Annotated[
     Columns, Field(description='"default" for the main columns, "all" for every column.')
@@ -77,6 +93,19 @@ class TableResult(BaseModel):
     provenance: dict[str, Any] = Field(
         default_factory=dict,
         description="Where the answer came from: releases, catalog version, jobs, API build.",
+    )
+    status: Literal["done", "running"] = Field(
+        default="done",
+        description='"running" if the jobs outlasted the wait: call get_job_result with a job_id.',
+    )
+    job_ids: list[str] = Field(
+        default_factory=list, description="The API jobs of a call still running."
+    )
+    poll_after_seconds: float | None = Field(
+        default=None, description="When it is worth asking again, for a call still running."
+    )
+    saved: SavedFile | None = Field(
+        default=None, description="Where the full result was saved, with save_as."
     )
 
 
