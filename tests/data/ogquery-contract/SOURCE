@@ -1,0 +1,7 @@
+# Where the contract bundle comes from. opengwasdb generates it; ogquery reads it.
+# releases/, expected/, VERSION and .gitattributes are this commit's, byte for byte:
+# `python scripts/contract_bundle.py check` (pixi: contract-check), and CI, hold it.
+# Refresh with `python scripts/contract_bundle.py refresh --commit <sha>` (README.md).
+repository https://github.com/opengwas/opengwasdb.git
+commit 355449d7397f0e50664e48e5bcf0bd3880bda2e2
+path tests/store_reader_contract

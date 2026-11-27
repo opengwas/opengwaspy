@@ -43,6 +43,24 @@ jobs:
       # Unit tests only: the live tests need the API and a key, which CI does not have.
       - run: uv run pytest
 
+  local:
+    name: local source (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      # The Local Source's tests read ogquery's contract releases (tests/data/ogquery-contract).
+      - run: uv run pytest tests/test_local.py --no-cov
+
   package:
     name: package
     runs-on: ubuntu-latest
@@ -61,9 +79,17 @@ jobs:
             echo "mcp was installed without the extra"; exit 1
           fi
           /tmp/check/bin/python -c "import opengwaspy.compat, opengwaspy.jobs"
+          if /tmp/check/bin/python -c "import ogquery" 2>/dev/null; then
+            echo "ogquery was installed without the local extra"; exit 1
+          fi
       - name: the mcp extra installs and its server starts
         run: |
           uv venv /tmp/check-mcp
           uv pip install --python /tmp/check-mcp "$(ls dist/*.whl)[mcp]"
           /tmp/check-mcp/bin/opengwaspy-mcp --version
           /tmp/check-mcp/bin/python -c "from opengwaspy.mcp import create_server; create_server()"
+      - name: the local extra installs and opens a Store Release
+        run: |
+          uv venv --python 3.12 /tmp/check-local
+          uv pip install --python /tmp/check-local "$(ls dist/*.whl)[local]"
+          /tmp/check-local/bin/python -c "import opengwaspy as og; s = og.local('tests/data/ogquery-contract/dense_ranges'); print(s); s.close()"

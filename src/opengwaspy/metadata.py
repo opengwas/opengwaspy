@@ -14,6 +14,7 @@ import pandas as pd
 from opengwaspy._common import ReleaseLike, resolve_releases
 from opengwaspy.client import Client, get_client
 from opengwaspy.errors import ProtocolError, RequestError
+from opengwaspy.source import require_api
 from opengwaspy.transport import json_body
 
 __all__ = ["gwasinfo", "gwasinfo_files", "gwasinfo_search"]
@@ -100,7 +101,7 @@ def gwasinfo(
     Raises:
         RequestError: With ``strict``, some IDs were not found or are retired.
     """
-    client = client or get_client()
+    client = require_api(client or get_client(), "opengwaspy.gwasinfo")
     if ids is None:
         if releases is not None:
             raise ValueError(
@@ -246,7 +247,7 @@ def gwasinfo_search(
         raise ValueError(f"match must be 'contains' or 'fulltext', not {match!r}")
     if limit is not None and limit < 1:
         raise ValueError("limit must be at least 1")
-    client = client or get_client()
+    client = require_api(client or get_client(), "opengwaspy.gwasinfo_search")
     fulltext = match == "fulltext"
     filters = {
         name: value
@@ -328,7 +329,7 @@ def gwasinfo_files(
     Raises:
         NotImplementedByServer: The selected Stores do not record source files.
     """
-    client = client or get_client()
+    client = require_api(client or get_client(), "opengwaspy.gwasinfo_files")
     body: dict[str, Any] = {"limit": limit, **_selection(client, releases, release_set)}
     if after:
         body["after"] = after

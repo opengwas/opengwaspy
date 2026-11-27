@@ -7,6 +7,7 @@ from typing import Any
 import pandas as pd
 
 from opengwaspy.client import Client, get_client
+from opengwaspy.source import require_api
 
 __all__ = ["batches", "status", "user"]
 
@@ -20,7 +21,7 @@ def status(*, client: Client | None = None) -> dict[str, Any]:
     Returns:
         The status document.
     """
-    return (client or get_client()).status()
+    return require_api(client or get_client(), "opengwaspy.status").status()
 
 
 def user(*, client: Client | None = None) -> dict[str, Any]:
@@ -29,7 +30,7 @@ def user(*, client: Client | None = None) -> dict[str, Any]:
     Args:
         client: The client to use; defaults to :func:`~opengwaspy.get_client`.
     """
-    return (client or get_client()).user()
+    return require_api(client or get_client(), "opengwaspy.user").user()
 
 
 def batches(*, client: Client | None = None) -> pd.DataFrame:
@@ -44,4 +45,4 @@ def batches(*, client: Client | None = None) -> pd.DataFrame:
     Args:
         client: The client to use; defaults to :func:`~opengwaspy.get_client`.
     """
-    return (client or get_client()).batches()
+    return require_api(client or get_client(), "opengwaspy.batches").batches()

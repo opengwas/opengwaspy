@@ -17,7 +17,8 @@ from collections.abc import Iterable
 import pandas as pd
 
 from opengwaspy._common import ReleaseLike, add_p, as_list, chunks, drop_none, resolve_releases, run
-from opengwaspy.client import Client, get_client
+from opengwaspy.client import get_client
+from opengwaspy.source import Source
 
 __all__ = ["associations", "associations_analysis", "associations_range"]
 
@@ -28,7 +29,7 @@ def associations(
     *,
     observed_only: bool = True,
     releases: Iterable[ReleaseLike] | None = None,
-    client: Client | None = None,
+    client: Source | None = None,
 ) -> pd.DataFrame:
     """Associations of some variants in some analyses.
 
@@ -40,7 +41,8 @@ def associations(
         analyses: Analysis IDs, bare or Store-qualified.
         observed_only: Leave out imputed associations.
         releases: Only these Stores' releases (Store IDs, ``store/release``, or dicts).
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source (:func:`~opengwaspy.local`);
+            defaults to :func:`~opengwaspy.get_client`.
 
     Returns:
         One row per association found, with ``p`` derived from ``log10_p``. Rows
@@ -75,7 +77,7 @@ def associations_range(
     *,
     observed_only: bool = True,
     releases: Iterable[ReleaseLike] | None = None,
-    client: Client | None = None,
+    client: Source | None = None,
 ) -> pd.DataFrame:
     """Every association in a genomic range.
 
@@ -89,7 +91,8 @@ def associations_range(
         analyses: Analysis IDs. ``None`` means every analysis of ``releases``.
         observed_only: Leave out imputed associations.
         releases: Only these Stores' releases.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source (:func:`~opengwaspy.local`);
+            defaults to :func:`~opengwaspy.get_client`.
 
     Returns:
         The associations, by group of analyses, then window, with ``p`` added.
@@ -138,7 +141,7 @@ def associations_analysis(
     *,
     observed_only: bool = True,
     releases: Iterable[ReleaseLike] | None = None,
-    client: Client | None = None,
+    client: Source | None = None,
 ) -> pd.DataFrame:
     """Every association of whole analyses.
 
@@ -151,7 +154,8 @@ def associations_analysis(
         analyses: Analysis IDs, in groups of the API's ``analysis_analyses`` (10).
         observed_only: Leave out imputed associations.
         releases: Only these Stores' releases.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source (:func:`~opengwaspy.local`);
+            defaults to :func:`~opengwaspy.get_client`.
     """
     client = client or get_client()
     analysis_list = as_list(analyses, "analyses") or []

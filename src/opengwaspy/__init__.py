@@ -31,9 +31,11 @@ from opengwaspy.errors import (
 from opengwaspy.hits import phewas, tophits
 from opengwaspy.jobs import Job, JobTimeout
 from opengwaspy.ld import ld_clump, ld_matrix, ld_proxies, ld_reflookup, ld_region, ld_stores
+from opengwaspy.local import LocalSource, local
 from opengwaspy.metadata import gwasinfo, gwasinfo_files, gwasinfo_search
 from opengwaspy.rho import rho
 from opengwaspy.service import batches, status, user
+from opengwaspy.source import LocalUnsupported, Source
 from opengwaspy.variants import variants_chrpos, variants_rsid
 
 __all__ = [
@@ -50,12 +52,15 @@ __all__ = [
     "JobTimeout",
     "LDRefusal",
     "Limits",
+    "LocalSource",
+    "LocalUnsupported",
     "NoAuth",
     "NotImplementedByServer",
     "OpenGWASError",
     "OpenGWASToken",
     "RateLimitError",
     "RequestError",
+    "Source",
     "UnsupportedOptionError",
     "__version__",
     "associations",
@@ -73,6 +78,7 @@ __all__ = [
     "ld_reflookup",
     "ld_region",
     "ld_stores",
+    "local",
     "phewas",
     "rho",
     "run_many",

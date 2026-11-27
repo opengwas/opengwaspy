@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **A Local Source** (preview): `og.local(paths)` opens downloaded format 0.3 Store Releases through ogquery, and answers `associations`, `associations_range` and `associations_analysis` with the API's rows, passed as `client`. The `local` extra (Python 3.12+). Functions that need the Data API refuse a Local Source with `LocalUnsupported` (#113).
 - `rho()`: a GWAS Store's Rho Matrix (the null correlation between its analyses), full or for chosen analyses, from the Data API's `POST /api/rho` (ogdb-api#181). A square `float32` DataFrame, with `n_null` and the estimation `settings` in `attrs`; a release without one is refused with `rho_unavailable` (#110).
 - `tophits(clump=True)` at 5e-8 now gets a release's **stored Clumps** where it has them (a Data API change, ogdb-api#197), made in the Store's own configuration rather than at r² 0.001 within 3,000 kb. Each lead has `clump_source`; `attrs["clump"]` gives `source` (`stored`, `computed` or `mixed`) and each stored release's configuration, and its counts now cover both paths across every job. Pass `clump={"r2": 0.001, "kb": 3000}` to clump every release on the fly (#109).
 - Docs: [Use with AI assistants](guide/ai-assistants.md), on installing and configuring the MCP server for Claude Code, Claude Desktop and other clients, its tools and limits, saving results, long jobs, and privacy. CI checks that the core package installs without the `mcp` extra, and that the extra's server starts.

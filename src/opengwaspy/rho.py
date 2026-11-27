@@ -18,6 +18,7 @@ import pandas as pd
 from opengwaspy._common import ReleaseLike, as_list, drop_none, resolve_releases
 from opengwaspy.client import Client, get_client
 from opengwaspy.errors import ProtocolError
+from opengwaspy.source import require_api
 
 __all__ = ["rho"]
 
@@ -58,7 +59,7 @@ def rho(
         RequestError: ``rho_unavailable`` if the release has no Rho Matrix (a
             Ragged Store, for example); the message says why.
     """
-    client = client or get_client()
+    client = require_api(client or get_client(), "opengwaspy.rho")
     refs = resolve_releases(client, [release])
     if not refs or len(refs) != 1:
         raise ValueError(f"name one Store Release; {release!r} matches {len(refs or [])}")

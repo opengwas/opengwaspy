@@ -26,6 +26,7 @@ import pandas as pd
 from opengwaspy._common import as_list, chunks, drop_none, run
 from opengwaspy.client import Client, get_client
 from opengwaspy.errors import ProtocolError
+from opengwaspy.source import require_api
 from opengwaspy.transport import json_body
 
 __all__ = ["ld_clump", "ld_matrix", "ld_proxies", "ld_reflookup", "ld_region", "ld_stores"]
@@ -83,7 +84,7 @@ def ld_stores(*, client: Client | None = None) -> pd.DataFrame:
     Args:
         client: The client to use; defaults to :func:`~opengwaspy.get_client`.
     """
-    client = client or get_client()
+    client = require_api(client or get_client(), "opengwaspy.ld_stores")
     body = json_body(client.transport.get("api/ld/stores"))
     stores = body.get("stores") if isinstance(body, dict) else None
     if not isinstance(stores, list):
@@ -115,7 +116,7 @@ def ld_matrix(
         the store holds. ``attrs["absent"]`` lists ALIDs it does not hold, and
         ``attrs["variants"]`` the alleles (``a1``, ``a2``) the signs refer to.
     """
-    client = client or get_client()
+    client = require_api(client or get_client(), "opengwaspy.ld_matrix")
     values = _alids(alids, distinct=True)
     cap = client.limits.ld_matrix_alids
     if len(values) > cap:
@@ -149,7 +150,7 @@ def ld_region(
     Returns:
         A square DataFrame of r, as :func:`ld_matrix` returns.
     """
-    client = client or get_client()
+    client = require_api(client or get_client(), "opengwaspy.ld_region")
     if centre < 1 or radius < 0:
         raise ValueError("centre must be positive and radius not negative")
     body = drop_none(
@@ -202,7 +203,7 @@ def ld_clump(
         are the leads. ``attrs["absent"]`` lists ALIDs the store does not hold:
         they belong to no clump.
     """
-    client = client or get_client()
+    client = require_api(client or get_client(), "opengwaspy.ld_clump")
     values = _alids(alids, distinct=True)
     score_list = [float(s) for s in scores]
     if len(score_list) != len(values):
@@ -239,7 +240,7 @@ def ld_proxies(
         One row per proxy: ``query``, ``proxy``, ``r``, ``r2`` and ``distance``.
         ``attrs["absent"]`` lists ALIDs the store does not hold.
     """
-    client = client or get_client()
+    client = require_api(client or get_client(), "opengwaspy.ld_proxies")
     values = _alids(alids, distinct=True)
     selection = _store(ancestry, store)
     bodies = [
@@ -267,7 +268,7 @@ def ld_reflookup(
     Returns:
         One row per ALID, in order: ``alid`` and ``present``.
     """
-    client = client or get_client()
+    client = require_api(client or get_client(), "opengwaspy.ld_reflookup")
     values = _alids(alids, distinct=True)
     selection = _store(ancestry, store)
     bodies = [
