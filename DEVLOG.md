@@ -9,6 +9,13 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #115 (part): the Rho Matrix on a Local Source
+
+- **Built:** `LocalSource.rho()` reads `query.rho_matrix(ids)` through ogquery, with the estimation settings from the Rho group's attributes (the keys ogdb-api's `rho.py` reports; a Hybrid's from its Dense Component). `opengwaspy.rho` builds the same frame on both paths. A release without a Rho group gets `422 rho_unavailable`, as the API; an Overflow-only Analysis of a Hybrid (ogquery's `OverflowOnlyAnalysisError`) too; an unknown Analysis `analysis_not_found`.
+- **Fixtures:** `dense_rho` and `hybrid_overflow_only` added from ogquery `v0.5.0`'s contract bundle (byte for byte). Checked: Rho(`trait_a`, `trait_b`) = 0.617, `trait_c`/`trait_d` NaN, the Hybrid's matrix leaves out Overflow-only `trait_c`, and refuses it by name.
+- **Still to do in #115:** clumped top hits on a Local Source (stored Clumps, and on-the-fly clumping with local LD Stores), and HapMap3 (waits on #111 / ogdb-api#182).
+- **Checks:** ruff, mypy (81 files), `pytest` 412 passed (99%), `mkdocs build --strict`.
+
 ## 2026-11-27 - #116: LD from downloaded LD Stores and Genotype Stores
 
 - **Mirrors ogdb-api `origin/main`** (which reads LD through `ogquery.ld` since #199): `ld_operations.py` (matrix, region, clump, proxies, reflookup rows and metadata), `ld_registry.LDStoreInfo.as_dict`/`facts` (the listing and the facts every LD result carries), `store_name` (directory name without `.store`), and `ld_jobs` (an `ogquery.ld.Refusal` is `422 ld_refusal` with its `reason`). Ported to `opengwaspy/local/_ld.py`.

@@ -10,7 +10,7 @@ Ragged Store has none.
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -20,6 +20,9 @@ from opengwaspy.client import Client, get_client
 from opengwaspy.errors import ProtocolError
 from opengwaspy.source import require_api
 
+if TYPE_CHECKING:
+    from opengwaspy.local import LocalSource
+
 __all__ = ["rho"]
 
 
@@ -27,7 +30,7 @@ def rho(
     release: ReleaseLike,
     analyses: str | Iterable[str] | None = None,
     *,
-    client: Client | None = None,
+    client: Client | LocalSource | None = None,
 ) -> pd.DataFrame:
     """A GWAS Store's Rho Matrix, or the sub-matrix of some of its analyses.
 
@@ -43,7 +46,9 @@ def rho(
         analyses: Analysis IDs of that Store (bare, or ``store_id:analysis_id``):
             the sub-matrix of these, rows and columns in this order. Default:
             every analysis the matrix holds, in the Store's order.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source (:func:`~opengwaspy.local`),
+            which reads the matrix from the downloaded release; defaults to
+            :func:`~opengwaspy.get_client`.
 
     Returns:
         A square DataFrame of Rho, indexed and labelled by analysis ID, with 1
@@ -59,13 +64,29 @@ def rho(
         RequestError: ``rho_unavailable`` if the release has no Rho Matrix (a
             Ragged Store, for example); the message says why.
     """
-    client = require_api(client or get_client(), "opengwaspy.rho")
-    refs = resolve_releases(client, [release])
+    source = client or get_client()
+    refs = resolve_releases(source, [release])
     if not refs or len(refs) != 1:
         raise ValueError(f"name one Store Release; {release!r} matches {len(refs or [])}")
     analysis_list = as_list(analyses, "analyses")
     if analysis_list is not None and not analysis_list:
         raise ValueError("analyses is empty")
+    if getattr(source, "is_local", False):
+        answer = source.rho(refs[0], analysis_list)  # type: ignore[union-attr]
+        names = [str(a) for a in answer["analysis_id"]]
+        index = pd.Index(names, name="analysis_id")
+        local: pd.DataFrame = pd.DataFrame(
+            np.asarray(answer["rho"], dtype=np.float32), index=index, columns=names
+        )
+        local.attrs.update(answer["provenance"])
+        local.attrs.update(
+            store_id=refs[0]["store_id"],
+            release_id=refs[0]["release_id"],
+            settings=dict(answer["settings"]),
+            n_null=pd.DataFrame(np.asarray(answer["n_null"]), index=index, columns=names),
+        )
+        return local
+    client = require_api(source, "opengwaspy.rho")
     body = drop_none({"releases": refs, "analyses": analysis_list})
     job = client.submit("api/rho", body)
     ids: list[str] = []

@@ -46,7 +46,8 @@ Switching between the API and your downloads is that one argument.
 | `variants_rsid`, `variants_chrpos` | yes |
 | `gwasinfo`, `batches` | yes, from each release's own `analyses.tsv` and manifest (below) |
 | `ld_matrix`, `ld_region`, `ld_clump`, `ld_proxies`, `ld_reflookup`, `ld_stores` | yes, from downloaded LD Stores and Genotype Stores (below) |
-| clumped `tophits`, `rho`, HapMap3 | coming (#115) |
+| `rho` | yes, from a Dense release's or a Hybrid's Dense Component's Rho Matrix |
+| clumped `tophits`, HapMap3 | coming (#115) |
 | `gwasinfo_search`, `gwasinfo_files`, `status`, `user` | no: they need the Data API |
 
 ## LD from downloaded LD Stores
