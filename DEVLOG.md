@@ -9,6 +9,16 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #92: MCP LD tools
+
+- **`ld_proxies`:** up to 100 variants, `ancestry` (default EUR), `r2` (default 0.8), `kb` (default 3,000, at most 10,000), `max_rows`. Rows are sorted strongest r2 first within each query variant.
+- **`ld_matrix`:** up to 50 variants; one row per variant (`alid`, `rsid` when translated, `a1`, `a2`, then r with each variant, rounded to 3 places). `save_as` waits on #93.
+- **Variants** may be ALIDs or rsIDs (`to_alids`): rsIDs are looked up with `variants_rsid`; an rsID naming several ALIDs uses all of them, with a note; one no served Store holds is left out, with a note. Anything else is refused before any job.
+- Unheld variants (`attrs["absent"]`) become a note; the store's `t_far`, `near_bp` and `far_bp` go in provenance. `LDRefusal` (with what the store can answer) and an unknown ancestry come back as tool errors with the API's message.
+- `MaxRows` and `ColumnChoice` moved to `formatting.py` for every tool.
+- **Tests:** `tests/test_mcp_ld.py` (14). ruff, mypy strict and `pytest` (290 passed, 99% coverage) pass.
+- **Live (stdio, 6433, image `sha256:3f88e06a…`):** `ld_proxies` of `10:59707424:G:T` gave 5 proxies (r2 0.984 first) from `hgdp1kgp-v2-EUR-k10`; `ld_matrix` reported two ALIDs not in the panel; r2=0.001 at 10,000 kb gave the `LDRefusal` text. rsID translation could not be checked live, because 6433 serves no data Stores at present (see #90).
+
 ## 2026-11-27 - #90: MCP metadata tools
 
 - **`opengwaspy.mcp.formatting`:** `TableResult` (pydantic, so clients get an output schema): `summary`, `total_rows`, `rows_returned`, `truncated`, `columns`, `rows`, `notes`, `provenance`. `table_result()` trims a DataFrame to chosen columns (`default`, `all` or a list) and `max_rows`, converts NaN and numpy values to JSON, and copies `release_id`, `catalog_version`, `releases`, `job_id(s)` and `image_digest` from `attrs`. `METADATA_COLUMNS` is the ticket's list.

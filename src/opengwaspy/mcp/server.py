@@ -217,9 +217,10 @@ def create_server(
         lifespan=lifespan,
     )
     register_status(server)
-    from opengwaspy.mcp import metadata
+    from opengwaspy.mcp import ld, metadata
 
     metadata.register(server)
+    ld.register(server)
     return server
 
 
