@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import math
 import re
+from collections.abc import Mapping
 from typing import Annotated, Any
 
 import pandas as pd
@@ -131,6 +133,25 @@ def _no_analyses(notes: list[str]) -> ToolError:
     return ToolError("None of the analysis IDs were found. " + " ".join(notes))
 
 
+def _clump_note(clumped: Mapping[str, Any]) -> str:
+    """How the leads were clumped: from stored Clumps, on the fly, or both."""
+    source = clumped.get("source") or "computed"
+    on_the_fly = f"clumped on the fly at r2 {clumped.get('r2')} within {clumped.get('kb')} kb"
+    configurations = {
+        json.dumps(item.get("configuration"), sort_keys=True, default=str)
+        for item in (clumped.get("stored") or {}).values()
+        if isinstance(item, Mapping)
+    }
+    stored = "read from the Stores' stored Clumps (their configuration is in provenance)"
+    if len(configurations) > 1:
+        stored += "; the Stores were clumped in different configurations"
+    if source == "stored":
+        return f"Leads {stored}."
+    if source == "mixed":
+        return f"Leads {stored} for some Stores, and {on_the_fly} for the others (clump_source)."
+    return f"Leads {on_the_fly}."
+
+
 def register(server: MCPServer[Session]) -> None:
     """Add the data tools: top hits, associations, regions, PheWAS and variant lookups."""
 
@@ -140,8 +161,12 @@ def register(server: MCPServer[Session]) -> None:
         description=(
             "The strongest associations (top hits) of up to 10 analyses at p <= threshold, "
             "strongest first. With clump=true, the server LD-clumps every hit and returns only "
-            "the independent leads, each with clump_size (r2 0.001 within 3,000 kb in the "
-            "analysis's own ancestry by default)."
+            "the independent leads, each with clump_size and clump_source. At threshold 5e-8 "
+            "with no r2 or kb, a Store's stored Clumps are used where it has them (made when the "
+            "Store was built, r2 about 0.032 within 10,000 kb in the HGDP+1kGP EUR panel); "
+            "otherwise, and with r2 or kb given, the hits are clumped on the fly (r2 0.001 "
+            "within 3,000 kb in the analysis's own ancestry by default). Give r2 and kb to "
+            "clump every Store the same way."
         ),
         annotations=READ_ONLY,
     )
@@ -154,10 +179,12 @@ def register(server: MCPServer[Session]) -> None:
         ] = 5e-8,
         clump: Annotated[bool, Field(description="LD-clump the hits on the server.")] = False,
         r2: Annotated[
-            float | None, Field(gt=0, le=1, description="Clumping r2 (default 0.001).")
+            float | None,
+            Field(gt=0, le=1, description="Clumping r2 (on the fly: default 0.001)."),
         ] = None,
         kb: Annotated[
-            float | None, Field(gt=0, le=10_000, description="Clumping window (default 3000).")
+            float | None,
+            Field(gt=0, le=10_000, description="Clumping window in kb (on the fly: default 3000)."),
         ] = None,
         ancestry: Annotated[
             str | None, Field(description="Clump every analysis in this LD panel, such as EUR.")
@@ -210,6 +237,7 @@ def register(server: MCPServer[Session]) -> None:
         clumped = frame.attrs.get("clump")
         if clumped:
             prov["clump"] = clumped
+            notes.append(_clump_note(clumped))
             if clumped.get("absent"):
                 notes.append(
                     f"{clumped['absent']} hits are not in the LD panel, so were neither clumped "
@@ -220,7 +248,7 @@ def register(server: MCPServer[Session]) -> None:
             summary=f"{len(frame)} {kind} at p <= {threshold:g} ({per}).",
             max_rows=max_rows,
             columns=columns,
-            default_columns=_defaults(*(["clump_size"] if clump else [])),
+            default_columns=_defaults(*(["clump_size", "clump_source"] if clump else [])),
             total=len(frame),
             notes=notes,
             provenance=prov,
