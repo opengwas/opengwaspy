@@ -9,6 +9,14 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #115 (part): clumped top hits on a Local Source
+
+- **Ports ogdb-api `origin/main`:** `stored_clumps.read_facts`, `answers` (the owner's rule of 27 Nov), `_lead_of`, `stored_leads`; `main.clump_plan` (each analysis's ancestry: the named store's, else `assigned_ancestry` if an LD Store of it is open, else EUR); `ld_clump.clump_hits` and `merge_stored` (rows: computed leads, then stored; `metadata.clump` with `source`, `r2`/`kb` only when computed, counts, `ld_stores`, and per-release `stored` configuration and counts). In `opengwaspy/local/_clumps.py`, reading only ogquery's public API (`manifest.clumps`, `top_hit_tiers().tier(5e-8)`, `TopHitTier.clumps`/`read`, `identity_by_indices`).
+- **Locally different, by necessity:** where the API would read its served LD Stores, the Local Source uses the LD Stores opened with `ld=`; with none for the ancestry it raises `ld_store_not_found`, with several `ambiguous_ld_store` (name one in `clump`). It never answers unclumped instead.
+- **Fixture:** no contract release carries stored Clumps, so the tests write a §18.1 `clumps/default` group (leads, `r`, the `clumps` attribute with every key ogquery requires) into a copy of `dense_ranges`' 5e-8 tier, and declare it in the manifest, as ogquery's own unit tests build one. Checked: default `clump=True` gives the three stored leads with their sizes (4, 1, 2) and the absent marker counted; an exact `r2`/`kb` match is stored, a mismatch or another threshold computed; a named store on the stored panel is stored; an undeclared group is never read; the Test Panel refuses the computed default (`threshold_below_t_partner`).
+- **Checks:** ruff, mypy (83 files), `pytest` 421 passed (98%; `_clumps.py` 93%); 3.10: 374 passed, 4 skipped, 98%.
+- **Still to do in #115:** HapMap3 (waits on #111 / ogdb-api#182).
+
 ## 2026-11-27 - #115 (part): the Rho Matrix on a Local Source
 
 - **Built:** `LocalSource.rho()` reads `query.rho_matrix(ids)` through ogquery, with the estimation settings from the Rho group's attributes (the keys ogdb-api's `rho.py` reports; a Hybrid's from its Dense Component). `opengwaspy.rho` builds the same frame on both paths. A release without a Rho group gets `422 rho_unavailable`, as the API; an Overflow-only Analysis of a Hybrid (ogquery's `OverflowOnlyAnalysisError`) too; an unknown Analysis `analysis_not_found`.

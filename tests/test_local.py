@@ -132,8 +132,8 @@ def test_unsupported(two: LocalSource) -> None:
     with pytest.raises(RequestError, match="no open LD Store") as caught:
         og.ld_reflookup("1:1000:A:G", ancestry="EUR", client=two)
     assert caught.value.error == "ld_store_not_found"
-    with pytest.raises(LocalUnsupported, match="clumped top hits"):
-        og.tophits("bmi_irn", clump=True, client=two)
+    with pytest.raises(RequestError, match="no LD Store is open for EUR"):
+        og.tophits("bmi_irn", clump=True, client=two)  # no stored Clumps, and no LD Store
     with pytest.raises(LocalUnsupported, match=r"opengwaspy\.gwasinfo_search"):
         og.gwasinfo_search("bmi", client=two)  # type: ignore[arg-type]
     assert og.ld_stores(client=two).empty  # no LD Stores were opened

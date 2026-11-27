@@ -47,7 +47,8 @@ Switching between the API and your downloads is that one argument.
 | `gwasinfo`, `batches` | yes, from each release's own `analyses.tsv` and manifest (below) |
 | `ld_matrix`, `ld_region`, `ld_clump`, `ld_proxies`, `ld_reflookup`, `ld_stores` | yes, from downloaded LD Stores and Genotype Stores (below) |
 | `rho` | yes, from a Dense release's or a Hybrid's Dense Component's Rho Matrix |
-| clumped `tophits`, HapMap3 | coming (#115) |
+| clumped `tophits` | yes: from a release's stored Clumps, as the API decides; otherwise clumped on the fly in an open LD Store (below) |
+| HapMap3 | coming (#115) |
 | `gwasinfo_search`, `gwasinfo_files`, `status`, `user` | no: they need the Data API |
 
 ## LD from downloaded LD Stores
@@ -64,6 +65,8 @@ with og.local(ld=["/data/ld-stores/hgdp1kgp-v2-EUR-k10.store"]) as source:
 - **The same answers and refusals** as the API's LD operations: a pair the store does not hold is missing unless you pass `fill`, and a request the store cannot answer exactly raises `LDRefusal` with its reason.
 - **No region limit.** The API refuses a region of more than 2,000 variants; locally `ld_region` answers any radius the store allows, so mind memory (the matrix is n² numbers).
 - **Genotype Stores** compute r from the genotypes they pin, with ogquery's `genotype` extra: `pip install "opengwaspy[local-genotype]"` (pgenlib; Linux and macOS only). A Genotype Store pins each pgen file's size, checksum and modification time: unpack downloads keeping file times (`tar` does), or it is refused.
+
+**Clumped top hits.** `tophits(clump=True)` follows the API's rule: at 5e-8, with no `r2` or `kb`, a release's stored Clumps answer, with no LD read; an explicit `r2` and `kb` use them only if both match. Anything else is clumped on the fly in an LD Store you opened with `ld=` (the one named in `clump`, else the analysis's `assigned_ancestry`, else EUR), with the same refusals as the API. Without a matching LD Store open, it says so rather than skipping the clumping.
 
 **Metadata.** `gwasinfo` on a Local Source gives each release's `analyses.tsv` fields (trait, ancestry, sample size, effect scale, licence, publication and more), with numbers as numbers and empty fields missing, plus `id`, `store_id` and `release_id`. Fields the API's Analysis Catalog adds, such as `trait_class` and `outcome_type`, are not in a release, so they are absent. `batches` lists the open releases with their `capabilities`, and adds `format_version`, `layout`, `completion_state` and `path`.
 

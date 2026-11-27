@@ -17,6 +17,7 @@ import pandas as pd
 
 from opengwaspy.client import Limits
 from opengwaspy.errors import OpenGWASError, RequestError
+from opengwaspy.local._clumps import clump_answer
 from opengwaspy.local._ld import (
     LD_ENDPOINTS,
     LocalLDError,
@@ -321,13 +322,15 @@ class LocalSource:
             rows = _translated(lambda: self._associations(name, body, releases))
             rows.sort(key=_row_key)
         elif name == "api/tophits":
-            if body.get("clump") is not None:
-                raise LocalUnsupported(
-                    "clumped top hits are not available on a Local Source yet (#115); "
-                    "leave out clump for the unclumped hits"
-                )
             releases = self._select(body)
-            rows, metadata = _translated(lambda: self._top_hits(body, releases))
+            if body.get("clump") is not None:
+                rows, metadata = _translated(
+                    lambda: clump_answer(
+                        body, releases, self.ld_stores, self._hits_at, self._resolved
+                    )
+                )
+            else:
+                rows, metadata = _translated(lambda: self._top_hits(body, releases))
         elif name == "api/phewas":
             releases = self._select(body)
             rows, metadata = _translated(lambda: self._phewas(body, releases))
@@ -544,15 +547,7 @@ class LocalSource:
         for release, analyses in releases:
             tier = _index_tier(threshold, release.top_hit_thresholds)
             if tier is None:
-                indexed = list(release.top_hit_thresholds)
-                loosest = f"{max(indexed):g}" if indexed else "none: it has no Top-Hit Index"
-                raise RequestError(
-                    400,
-                    "unsupported_threshold",
-                    f"threshold must be at most the loosest p-value the Top-Hit Index of "
-                    f"{release.store_id} holds ({loosest})",
-                    extra={"indexed_thresholds": indexed},
-                )
+                raise _unsupported_threshold(release)
             for analysis in analyses if analyses is not None else [None]:
                 raw = release.query.top_hits(
                     analysis_id=analysis, threshold=tier, observed_only=observed_only
@@ -568,6 +563,22 @@ class LocalSource:
             "truncated": capped,
         }
         return rows, meta
+
+    def _hits_at(
+        self, release: LocalRelease, analysis: str, threshold: float, observed_only: bool
+    ) -> Any:
+        """An analysis's hits at exactly ``threshold``, from the tier at or above it."""
+        tier = _index_tier(threshold, release.top_hit_thresholds)
+        if tier is None:
+            raise _unsupported_threshold(release)
+        raw = release.query.top_hits(
+            analysis_id=analysis, threshold=tier, observed_only=observed_only
+        )
+        return _at_threshold(raw, threshold, tier)
+
+    @staticmethod
+    def _resolved(release: LocalRelease, raw: Any) -> list[dict[str, Any]]:
+        return _rows(release, release.query.resolve(raw, include_variant_info=True))
 
     def _phewas(
         self, body: Mapping[str, Any], releases: Sequence[tuple[LocalRelease, list[str] | None]]
@@ -715,6 +726,18 @@ def _strength(row: Mapping[str, Any]) -> float:
     """|z|, for ranking; a missing z ranks last."""
     z = row.get("z")
     return abs(float(z)) if isinstance(z, (int, float)) and math.isfinite(z) else -1.0
+
+
+def _unsupported_threshold(release: LocalRelease) -> RequestError:
+    indexed = list(release.top_hit_thresholds)
+    loosest = f"{max(indexed):g}" if indexed else "none: it has no Top-Hit Index"
+    return RequestError(
+        400,
+        "unsupported_threshold",
+        f"threshold must be at most the loosest p-value the Top-Hit Index of "
+        f"{release.store_id} holds ({loosest})",
+        extra={"indexed_thresholds": indexed},
+    )
 
 
 def _index_tier(threshold: float, indexed: Sequence[float]) -> float | None:
