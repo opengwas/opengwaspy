@@ -8,19 +8,17 @@ from mcp.server.mcpserver import Context, MCPServer
 from pydantic import Field
 
 from opengwaspy.compat._ids import resolve
-from opengwaspy.mcp.formatting import MAX_ROWS, METADATA_COLUMNS, TableResult, table_result
+from opengwaspy.mcp.formatting import (
+    METADATA_COLUMNS,
+    ColumnChoice,
+    MaxRows,
+    TableResult,
+    table_result,
+)
 from opengwaspy.mcp.server import READ_ONLY, Session, call, session_of
 from opengwaspy.metadata import gwasinfo_search
 
 __all__ = ["register"]
-
-MaxRows = Annotated[
-    int, Field(ge=1, le=MAX_ROWS, description=f"The most rows to return (1-{MAX_ROWS}).")
-]
-ColumnChoice = Annotated[
-    Literal["default", "all"],
-    Field(description='"default" for the main columns, "all" for every column.'),
-]
 
 
 def register(server: MCPServer[Session]) -> None:

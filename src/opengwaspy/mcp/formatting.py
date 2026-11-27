@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -14,6 +14,8 @@ __all__ = [
     "MAX_ROWS",
     "METADATA_COLUMNS",
     "PROVENANCE_KEYS",
+    "ColumnChoice",
+    "MaxRows",
     "TableResult",
     "table_result",
 ]
@@ -47,6 +49,15 @@ PROVENANCE_KEYS = (
 )
 
 Columns = Literal["default", "all"]
+
+#: A tool's ``max_rows`` argument.
+MaxRows = Annotated[
+    int, Field(ge=1, le=MAX_ROWS, description=f"The most rows to return (1-{MAX_ROWS}).")
+]
+#: A tool's ``columns`` argument.
+ColumnChoice = Annotated[
+    Columns, Field(description='"default" for the main columns, "all" for every column.')
+]
 
 
 class TableResult(BaseModel):
