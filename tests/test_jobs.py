@@ -216,3 +216,60 @@ def test_status_defaults() -> None:
     s = JobStatus({"job_id": "j", "status": "running"})
     assert s.job_id == "j"
     assert (s.poll_after, s.result, s.metadata, s.finished) == (0.0, {}, {}, False)
+
+
+@respx.mock
+def test_timeout_is_a_deadline_not_a_minimum(transport: Transport, clock: FakeClock) -> None:
+    # The submission suggests a 20 s first poll; the caller allows 1 s (#80).
+    respx.post(f"{BASE}/api/tophits").respond(202, json=accepted("j1", poll_after=20.0))
+    respx.get(f"{BASE}/api/jobs/j1").mock(
+        side_effect=[ok(status("j1", "running", poll_after=20.0)), ok(status("j1", "succeeded"))]
+    )
+    job = Job.submit(transport, "/api/tophits", {"analyses": ["a"]})
+    started = clock.now
+    with pytest.raises(JobTimeout, match="still running after 1 s"):
+        job.wait(timeout=1)
+    # It polled at the deadline, not after the suggested 20 s, and did not poll again.
+    assert clock.now - started == pytest.approx(1.0)
+    assert clock.sleeps == [1.0]
+
+
+@respx.mock
+def test_late_success_is_a_timeout_and_the_job_is_not_cancelled(
+    transport: Transport, clock: FakeClock
+) -> None:
+    def slow_status(request: httpx.Request) -> httpx.Response:
+        clock.now += 5.0  # the status call itself takes 5 s
+        return ok(status("j1", "succeeded"))
+
+    respx.get(f"{BASE}/api/jobs/j1").mock(side_effect=slow_status)
+    cancel = respx.delete(f"{BASE}/api/jobs/j1").respond(json=status("j1", "cancelled"))
+    with pytest.raises(JobTimeout, match="still succeeded"):
+        Job.from_id(transport, "j1").wait(timeout=2)
+    assert not cancel.called
+
+
+@respx.mock
+def test_deadline_bounds_every_sleep(transport: Transport, clock: FakeClock) -> None:
+    respx.get(f"{BASE}/api/jobs/j1").respond(json=status("j1", "running", poll_after=5.0))
+    with pytest.raises(JobTimeout, match="still running"):
+        Job.from_id(transport, "j1").wait(timeout=12)
+    assert clock.sleeps == [5.0, 5.0, 2.0]
+
+
+@respx.mock
+def test_success_within_the_deadline(transport: Transport, clock: FakeClock) -> None:
+    respx.get(f"{BASE}/api/jobs/j1").mock(
+        side_effect=[ok(status("j1", "running", poll_after=1.0)), ok(status("j1", "succeeded"))]
+    )
+    assert Job.from_id(transport, "j1").wait(timeout=1).status == "succeeded"
+    assert clock.sleeps == [1.0]
+
+
+@respx.mock
+def test_zero_timeout_never_sleeps(transport: Transport, clock: FakeClock) -> None:
+    respx.post(f"{BASE}/api/tophits").respond(202, json=accepted("j1", poll_after=2.0))
+    job = Job.submit(transport, "/api/tophits", {"analyses": ["a"]})
+    with pytest.raises(JobTimeout, match="still queued after 0 s"):
+        job.wait(timeout=0)
+    assert clock.sleeps == []
