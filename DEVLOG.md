@@ -9,6 +9,25 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #83: job results checked against their manifest
+
+- `Job.pages()` now requires each page to be the next in sequence (`page_index` 0, 1, …) and to start at the next row (`row_offset`). It takes `page_count` and `total_rows` (or `row_count`) from the manifest in the job's status, or else from the first page. When those are declared, it refuses with `ProtocolError`:
+  - a result that ends before `page_count`;
+  - a result that runs past `page_count`;
+  - a result whose rows differ from `total_rows`.
+
+  The checks run before the last page is yielded, so `to_frame()` never returns an incomplete result. The manifest fields are as built by ogdb-api `ogdb_api/jobs.py` (`page_count`, `total_rows`, `page_row_offsets`).
+- **Tests:**
+  - a valid two-page result;
+  - an empty result;
+  - the issue's premature final page (one row, where two pages and three rows were declared);
+  - a manifest on the page only;
+  - a gap, a repeat, a wrong offset, and an overrun;
+  - a manifest without counts.
+
+  After merging #80's changes, `pytest` passed 334 tests; `jobs.py` coverage is 100%.
+- **Live, 6433:** `pytest -m live tests/test_live_ld.py` passed 5, with LD job results passing the new checks. The 3 data-job tests in `test_live_jobs.py` fail with `503 release_unavailable`, the current 6433 outage (OGS-00006 at format 0.3.0), not this change.
+
 ## 2026-11-27 - #80: `Job.wait` treats its timeout as a deadline
 
 - `Job.wait(timeout=...)` now:

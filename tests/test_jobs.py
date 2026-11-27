@@ -218,6 +218,93 @@ def test_status_defaults() -> None:
     assert (s.poll_after, s.result, s.metadata, s.finished) == (0.0, {}, {}, False)
 
 
+def declared(pages: int, rows: int) -> dict[str, object]:
+    return {"releases": [], "page_count": pages, "total_rows": rows, "row_count": rows}
+
+
+def finished_job(transport: Transport, manifest: dict[str, object] | None) -> Job:
+    body = status("j1", "succeeded")
+    if manifest is not None:
+        body["result"]["manifest"] = manifest  # type: ignore[index]
+    respx.get(f"{BASE}/api/jobs/j1").respond(json=body)
+    return Job.from_id(transport, "j1")
+
+
+def with_manifest(body: dict[str, object], manifest: dict[str, object]) -> dict[str, object]:
+    return {**body, "manifest": manifest}
+
+
+@respx.mock
+def test_valid_multi_page_result_matches_its_manifest(transport: Transport) -> None:
+    respx.get(f"{BASE}/api/jobs/j1/result").mock(
+        side_effect=[ok(page(ROWS[:2], next_cursor="c2")), ok(page(ROWS[2:], index=1, offset=2))]
+    )
+    frame = finished_job(transport, declared(2, 3)).to_frame()
+    assert len(frame) == 3
+
+
+@respx.mock
+def test_empty_result_with_declared_counts(transport: Transport) -> None:
+    respx.get(f"{BASE}/api/jobs/j1/result").respond(json=page([]))
+    assert finished_job(transport, declared(1, 0)).to_frame().empty
+
+
+@respx.mock
+def test_premature_final_page_is_refused(transport: Transport) -> None:
+    # A checksum-valid first page marked final, though two pages and three rows are declared.
+    respx.get(f"{BASE}/api/jobs/j1/result").respond(json=page(ROWS[:1]))
+    with pytest.raises(ProtocolError, match="ended after 1 pages, but its manifest declares 2"):
+        finished_job(transport, declared(2, 3)).to_frame()
+
+
+@respx.mock
+def test_manifest_on_the_page_is_used_when_the_status_has_none(transport: Transport) -> None:
+    respx.get(f"{BASE}/api/jobs/j1/result").respond(
+        json=with_manifest(page(ROWS[:2]), declared(1, 3))
+    )
+    with pytest.raises(ProtocolError, match="holds 2 rows, but its manifest declares 3"):
+        finished_job(transport, None).to_frame()
+
+
+@pytest.mark.parametrize(
+    ("second", "message"),
+    [
+        (page(ROWS[2:], index=2, offset=2), "expected result page 1, got page 2"),
+        (page(ROWS[:2], index=0, offset=0), "expected result page 1, got page 0"),
+        (page(ROWS[2:], index=1, offset=5), "starts at row 5, expected row 2"),
+        (page(ROWS[2:], index=1, offset=2, next_cursor="c3"), "more than the 2 pages"),
+    ],
+)
+@respx.mock
+def test_gaps_repeats_and_overruns_are_refused(
+    transport: Transport, second: dict[str, object], message: str
+) -> None:
+    respx.get(f"{BASE}/api/jobs/j1/result").mock(
+        side_effect=[
+            ok(page(ROWS[:2], next_cursor="c2")),
+            ok(second),
+            ok(page([], index=2, offset=3)),
+        ]
+    )
+    with pytest.raises(ProtocolError, match=message):
+        finished_job(transport, declared(2, 3)).to_frame()
+
+
+@respx.mock
+def test_without_declared_counts_only_the_sequence_is_checked(transport: Transport) -> None:
+    respx.get(f"{BASE}/api/jobs/j1/result").mock(
+        side_effect=[ok(page(ROWS[:2], next_cursor="c2")), ok(page(ROWS[2:], index=1, offset=2))]
+    )
+    assert len(finished_job(transport, {"releases": [], "page_count": "2"}).to_frame()) == 3
+
+
+def test_declared_counts_of_no_manifest() -> None:
+    from opengwaspy.jobs import _declared_counts
+
+    assert _declared_counts(None) == (None, None)
+    assert _declared_counts({"row_count": 4, "page_count": True}) == (None, 4)
+
+
 @respx.mock
 def test_timeout_is_a_deadline_not_a_minimum(transport: Transport, clock: FakeClock) -> None:
     # The submission suggests a 20 s first poll; the caller allows 1 s (#80).

@@ -143,6 +143,21 @@ class ResultPage:
         )
 
 
+def _declared_counts(manifest: Mapping[str, Any] | None) -> tuple[int | None, int | None]:
+    """The ``page_count`` and ``total_rows`` (or ``row_count``) a manifest declares."""
+    if not manifest:
+        return None, None
+
+    def number(*keys: str) -> int | None:
+        for key in keys:
+            value = manifest.get(key)
+            if isinstance(value, int) and not isinstance(value, bool):
+                return value
+        return None
+
+    return number("page_count"), number("total_rows", "row_count")
+
+
 class Job:
     """A query running as a job on the API.
 
@@ -317,15 +332,54 @@ class Job:
     def pages(self) -> Iterator[ResultPage]:
         """Wait for the job, then yield every page of its result, in order.
 
+        Each page must be the next in sequence and start at the next row. When
+        the manifest (in the job's status, or else in the first page) declares
+        ``page_count`` and ``total_rows``, the pages read must match them: the
+        result is only complete when they do.
+
         Raises:
             ResultExpired: The result was deleted while being read.
-            ProtocolError: A page's checksum did not match.
+            ProtocolError: A page's checksum did not match; a page was missing,
+                repeated or out of order; or the result ended before (or ran
+                past) what the manifest declares.
         """
         status = self._last if self._last and self._last.status == "succeeded" else self.wait()
         url = status.result.get("result_url") or f"{self._status_url}/result"
+        declared: Mapping[str, Any] | None = status.result.get("manifest") or None
         params: dict[str, str] = {}
+        index = rows = 0
         while True:
             page = ResultPage.parse(json_body(self.transport.get(url, params=params or None)))
+            if declared is None or "page_count" not in declared:
+                declared = page.manifest or declared
+            page_count, total_rows = _declared_counts(declared)
+            if page.page_index != index:
+                raise ProtocolError(
+                    f"job {self.job_id}: expected result page {index}, got page {page.page_index}"
+                )
+            if page.row_offset != rows:
+                raise ProtocolError(
+                    f"job {self.job_id}: result page {index} starts at row {page.row_offset}, "
+                    f"expected row {rows}"
+                )
+            index += 1
+            rows += len(page.rows)
+            if page_count is not None and index > page_count:
+                raise ProtocolError(
+                    f"job {self.job_id}: the result has more than the {page_count} pages "
+                    "its manifest declares"
+                )
+            if page.final:
+                if page_count is not None and index != page_count:
+                    raise ProtocolError(
+                        f"job {self.job_id}: the result ended after {index} pages, but its "
+                        f"manifest declares {page_count}"
+                    )
+                if total_rows is not None and rows != total_rows:
+                    raise ProtocolError(
+                        f"job {self.job_id}: the result holds {rows} rows, but its manifest "
+                        f"declares {total_rows}"
+                    )
             yield page
             if page.final:
                 return
