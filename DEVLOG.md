@@ -9,6 +9,21 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #89: MCP server skeleton
+
+- **Packaging:** the extra `mcp = ["mcp>=2.3,<3"]` and the console script `opengwaspy-mcp` (`opengwaspy.mcp.__main__:main`). `mcp` is also in the `dev` group, so CI's ruff, mypy strict and tests cover `opengwaspy.mcp` on Python 3.10-3.14. The core package gains no dependency. The SDK installed is `mcp` 2.3.0 (`MCPServer` from `mcp.server.mcpserver`).
+- **`opengwaspy.mcp.server`:**
+  - `create_server(url=, profile=, client_factory=)` builds an `MCPServer` named `opengwas`, with instructions for the model. Its lifespan builds one `Client` from the usual configuration and closes it on exit.
+  - With no credential, or an invalid configuration, the server still starts; `Session.require_client()` (for the data tools to come) and `api_status` say how to configure one (OpenGWAS token as `OPENGWAS_JWT`, or a developer key).
+  - A refused credential (401/403) gives a message on renewing the 14-day token.
+  - `scrub()` removes the credential (header value and bearer token) from every output, as a last line of defence. The command line takes no credential.
+  - Blocking opengwaspy calls run in a worker thread (`anyio.to_thread`).
+  - Tools carry `ToolAnnotations(read_only_hint, destructive_hint=False, open_world_hint)`.
+- **`api_status`:** URL and profile, readiness, `image_digest`, `release_ids`, the auth kind (never the value), `user()`, LD stores, and releases with the OpenGWAS batches. A failing section is reported in place rather than failing the tool.
+- **Tests:** `tests/test_mcp_server.py` drives the server through the SDK's in-memory `mcp.Client` against the respx fakes (12 tests: tool listing and annotations, status output, no credential, refused credential, invalid configuration, no credential in any output, the command line).
+- **Checks:** ruff format and check, mypy strict (58 files) and `pytest` (263 passed, 99.36% coverage) pass.
+- **Live (stdio):** `python -m opengwaspy.mcp` started as a subprocess through `mcp.Client(StdioServerParameters(...))` with the developer key against 6433: `api_status` answered (image `sha256:3f88e06a…`, user `developer:opengwaspy`, 5 LD stores), and the key appeared nowhere in the output. 6433 reported `ready: false` with no releases at the time, so the batches section was empty.
+
 ## 2026-11-21 - #71: docs for the PheWAS threshold, server clumping and OpenGWAS IDs
 
 - **`docs/examples.md`:** rerun on 6433 (image `sha256:b00d3288…`).
