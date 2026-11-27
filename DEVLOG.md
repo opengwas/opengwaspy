@@ -9,6 +9,25 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #95: MCP docs, live smoke test and CI
+
+- **Docs:** `docs/guide/ai-assistants.md` ("Use with AI assistants", in the Guide nav, linked from the home page). It covers:
+  - install (pip from GitHub, or uvx);
+  - credentials: an OpenGWAS token saved with `compat.get_jwt()` plus `profile = "gateway"`, renewed without restart; or `OPENGWAS_JWT`, which needs a restart; developer keys for developers;
+  - Claude Code (`claude mcp add opengwas -- opengwaspy-mcp`), Claude Desktop (JSON, with an absolute `OPENGWAS_MCP_OUTPUT_DIR`) and other clients;
+  - the tool table with limits, `save_as`, long jobs, allowance, privacy, and environment variables.
+
+  `mkdocs build --strict` passes.
+- **CI** (`tests.yml`, package job):
+  - the wheel without the extra must not pull in `mcp`, and `opengwaspy.compat` and `opengwaspy.jobs` import;
+  - the wheel with `[mcp]` installs, `opengwaspy-mcp --version` runs, and `create_server()` builds.
+
+  Both were run locally on a fresh `uv build`. Tests and mypy already cover `opengwaspy.mcp` on Python 3.10–3.14, through `mcp` in the dev group (#89).
+- **Live smoke test:** `tests/test_live_mcp.py`, over stdio with the developer key: `search_analyses`, then `top_hits(clump=true)`, then `associations` of five leads with `save_as` (CSV and sidecar in a temporary folder, the key in neither).
+  - **Not yet passing:** on 6433 (image `sha256:3f88e06a…`) the first call gets `503 release_unavailable`, because OGS-00006 is published at format 0.3.0. It must pass after 6433 is redeployed, before #95 (and #90, #91) close.
+  - The JWT live test waits on #7.
+- **MCP Inspector: not done.** The VM has no Node.js, so `npx @modelcontextprotocol/inspector` cannot run here. Owner to run it on the host: `npx @modelcontextprotocol/inspector opengwaspy-mcp`.
+
 ## 2026-11-27 - #93: MCP long jobs, get_job_result, save_as and cancellation
 
 - **`opengwaspy.jobs.observe(observer)`:** a thread-local hook, told of each job a query submits (`submitted`), each status (`polled`) and each checked page (`page`), from `Job.submit`, `Job.status` and `Job.pages`. That covers `Job.wait`, `run_many` and every query function. An observer may raise to stop the work.
