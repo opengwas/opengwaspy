@@ -9,6 +9,25 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #80: `Job.wait` treats its timeout as a deadline
+
+- `Job.wait(timeout=...)` now:
+  - cuts each poll sleep short to meet the deadline;
+  - raises `JobTimeout` (without cancelling the job) if the deadline has passed before a sleep;
+  - counts the time a status call takes (retries included) against the deadline, so a success seen only after the deadline is a `JobTimeout` too.
+
+  A success seen at or before the deadline is accepted.
+- **Before:** with a 20 s suggested first poll and `timeout=1`, the wait slept 20 s and returned success.
+- **Now** it polls at 1 s and, with the job still running, raises `JobTimeout` at 1 s.
+- **Tests (fake clock):**
+  - the 20 s / 1 s case;
+  - a late success after a slow status call (no cancellation);
+  - every sleep bounded (5, 5, 2 for a 12 s timeout);
+  - success within the deadline;
+  - `timeout=0`.
+
+  `pytest` passed 324 tests, and mypy and ruff are clean.
+
 ## 2026-11-27 - #94: MCP server with OpenGWAS tokens (JWT) through the Gateway
 
 - **Credential reload:** `opengwaspy.mcp.credentials.ReloadingAuth` wraps the configured provider. On a 401 (through the transport's existing `refresh()` hook), and before a tool call when no credential is configured, it re-reads the environment and config file. A token saved to the config file (for example by `compat.get_jwt()`) is used on the next call with no restart. A token in the server's environment cannot change while it runs, so the 401 message says to update the assistant's MCP settings and restart.
