@@ -36,6 +36,7 @@ nav:
       - Top hits and PheWAS: guide/tophits-phewas.md
       - Variants: guide/variants.md
       - LD: guide/ld.md
+      - Rho Matrix: guide/rho.md
       - Jobs and large queries: guide/jobs.md
       - Use with AI assistants: guide/ai-assistants.md
   - Reference:
@@ -46,6 +47,7 @@ nav:
       - Top hits and PheWAS: reference/hits.md
       - Variants: reference/variants.md
       - LD: reference/ld.md
+      - Rho Matrix: reference/rho.md
       - ieugwaspy compatibility: reference/compat.md
       - Configuration: reference/config.md
       - Authentication: reference/auth.md

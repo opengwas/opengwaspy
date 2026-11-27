@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `rho()`: a GWAS Store's Rho Matrix (the null correlation between its analyses), full or for chosen analyses, from the Data API's `POST /api/rho` (ogdb-api#181). A square `float32` DataFrame, with `n_null` and the estimation `settings` in `attrs`; a release without one is refused with `rho_unavailable` (#110).
 - Docs: [Use with AI assistants](guide/ai-assistants.md), on installing and configuring the MCP server for Claude Code, Claude Desktop and other clients, its tools and limits, saving results, long jobs, and privacy. CI checks that the core package installs without the `mcp` extra, and that the extra's server starts.
 - MCP server: long jobs report progress, and a call still running after 60 s (`OPENGWAS_MCP_WAIT_SECONDS`) answers `status: running` with its job IDs, for `get_job_result`; cancelling a call cancels its jobs. Every data tool takes `save_as`, saving the full result as CSV with a provenance `.json` in `OPENGWAS_MCP_OUTPUT_DIR` (default `./opengwas-results`); with it, `region_associations` takes up to 10 Mb and `phewas` up to 10,000 rows per job.
 - `opengwaspy.jobs.observe`: tell an observer about the jobs that queries in this thread submit, poll and read.
