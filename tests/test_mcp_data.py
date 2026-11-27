@@ -26,7 +26,11 @@ def answer(endpoint: str, body: dict[str, Any]) -> list[dict[str, Any]]:
     if endpoint == "/api/tophits":
         rows = []
         for a in body["analyses"]:
-            rows += [hit(a, f"1:{i}:A:G", -10.0 + i, clump_size=3) for i in range(1, 4)]
+            source = "stored" if body.get("clump") == {} else "computed"
+            rows += [
+                hit(a, f"1:{i}:A:G", -10.0 + i, clump_size=3, clump_source=source)
+                for i in range(1, 4)
+            ]
         return rows
     if endpoint == "/api/phewas":
         return [
@@ -37,6 +41,21 @@ def answer(endpoint: str, body: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def tophits_meta(endpoint: str, body: dict[str, Any]) -> dict[str, Any]:
+    if endpoint == "/api/tophits" and body.get("clump") == {}:
+        stored = {"configuration": {"kb": 10000}, "hits": 9, "leads": 3, "absent": 1}
+        return {
+            "truncated": False,
+            "clump": {
+                "source": "stored",
+                "r2": None,
+                "kb": None,
+                "hits": 0,
+                "leads": 0,
+                "absent": 0,
+                "ld_stores": {},
+                "stored": {"OGS-00006/r1": stored},
+            },
+        }
     if endpoint == "/api/tophits" and "clump" in body:
         return {
             "truncated": False,
@@ -97,8 +116,14 @@ def test_top_hits_clumped_on_the_server() -> None:
     assert out["summary"].startswith("3 leads")
     assert out["provenance"]["clump"]["leads"] == 3
     assert any("2 hits are not in the LD panel" in n for n in out["notes"])
+    assert any("clumped on the fly at r2 0.001 within 3000 kb" in n for n in out["notes"])
     plain = call(keyed, "top_hits", {"analysis_ids": [A], "clump": True}).structured_content
     assert plain is not None and bodies(server, "/api/tophits")[-1]["clump"] == {}
+    assert "clump_source" in plain["columns"]
+    assert {row["clump_source"] for row in plain["rows"]} == {"stored"}
+    assert plain["provenance"]["clump"]["source"] == "stored"
+    assert plain["provenance"]["clump"]["stored"]["OGS-00006/r1"]["configuration"] == {"kb": 10000}
+    assert any(n.startswith("Leads read from the Stores' stored Clumps") for n in plain["notes"])
 
 
 @respx.mock
@@ -244,3 +269,18 @@ def test_store_counts_when_held_by_several_stores() -> None:
     JobServer(BASE, found, batches=[{"store_id": s, "release_id": "r"} for s in ("S1", "S2")])
     out = call(keyed, "variant_info", {"variants": ["rs1"]}).structured_content
     assert out is not None and out["rows"][0]["stores"] == 2
+
+
+def test_clump_note_mixed_and_differing_configurations() -> None:
+    from opengwaspy.mcp.data import _clump_note
+
+    note = _clump_note(
+        {
+            "source": "mixed",
+            "r2": 0.001,
+            "kb": 3000,
+            "stored": {"S1/r": {"configuration": {"kb": 1}}, "S2/r": {"configuration": {"kb": 2}}},
+        }
+    )
+    assert "for some Stores" in note and "different configurations" in note
+    assert "r2 0.001 within 3000 kb" in note

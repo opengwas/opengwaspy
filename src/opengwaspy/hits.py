@@ -60,9 +60,23 @@ def tophits(
     """Each analysis's associations at or below a p-value threshold, strongest first.
 
     Without ``clump``, the hits are not LD-clumped. With ``clump``, the server
-    clumps **every** hit of each analysis at the threshold in an LD Store, and
-    returns only the leads, strongest first, each with ``clump_size``. Hits the
-    LD Store does not hold are neither clumped nor returned (counted in
+    clumps **every** hit of each analysis at the threshold, and returns only the
+    leads, strongest first, each with ``clump_size`` and ``clump_source``. The
+    clumps come from one of two places:
+
+    * **Stored Clumps** (``clump_source`` ``"stored"``): most Store Releases
+      carry clumps of their 5e-8 tier, made when the Store was built in its
+      own configuration (on the served Stores, r² equal to the EUR LD Store's
+      ``t_far``, about 0.032, within 10,000 kb, in the HGDP+1kGP EUR panel).
+      ``clump=True`` at ``threshold=5e-8`` uses them where a release has them,
+      with no LD job; an explicit ``r2`` and ``kb`` use them only when both
+      equal the stored configuration.
+    * **Computed** (``"computed"``): any other request, and any release without
+      stored Clumps, is clumped on the fly in an LD Store, by default at r² 0.001
+      within 3,000 kb. Pass ``clump={"r2": 0.001, "kb": 3000}`` to clump every
+      release that way.
+
+    Hits the LD panel does not hold are neither clumped nor returned (counted in
     ``attrs["clump"]["absent"]``).
 
     Args:
@@ -71,9 +85,10 @@ def tophits(
             the Store's index holds (usually 5e-4); a looser one is refused.
         limit: Most hits per analysis, keeping the largest absolute z; with
             ``clump``, most leads per analysis.
-        clump: ``True`` to clump with the server's defaults (r² 0.001 within
-            3,000 kb, in each analysis's own ancestry's LD Store, or EUR), or a
-            mapping of any of ``r2``, ``kb``, ``ancestry`` (one LD Store for every
+        clump: ``True`` to clump with the server's defaults (stored Clumps
+            where a release has them at 5e-8; otherwise r² 0.001 within 3,000 kb,
+            in each analysis's own ancestry's LD Store, or EUR), or a mapping
+            of any of ``r2``, ``kb``, ``ancestry`` (one LD Store for every
             analysis) or ``store`` (an LD Store's name).
         observed_only: Leave out imputed associations.
         releases: Only these Stores' releases.
@@ -82,8 +97,12 @@ def tophits(
     Returns:
         The hits (or leads), by analysis, strongest first, with ``p`` derived
         from ``log10_p``. ``attrs["truncated"]`` is true if any analysis had more
-        than ``limit``. With ``clump``, ``attrs["clump"]`` has the settings and
-        the counts of ``hits``, ``leads`` and ``absent``, and the ``ld_stores`` used.
+        than ``limit``. With ``clump``, ``attrs["clump"]`` has ``source``
+        (``stored``, ``computed`` or ``mixed``); the on-the-fly settings ``r2``
+        and ``kb`` and the ``ld_stores`` used; the counts of ``hits``, ``leads``
+        and ``absent`` over both paths (and ``imputed``, ``ambiguous`` and
+        ``not_clumped`` hits the stored Clumps left out); and under ``stored``,
+        each stored release's configuration and counts.
 
     Raises:
         RequestError: ``unsupported_threshold`` if ``threshold`` is looser than
@@ -149,21 +168,47 @@ def _clump_body(clump: bool | Mapping[str, Any]) -> dict[str, Any] | None:
     return {k: v for k, v in clump.items() if v is not None}
 
 
+#: Counts a release's stored Clumps report beside ``hits``, ``leads`` and ``absent``.
+_STORED_MARKERS = ("imputed", "ambiguous", "not_clumped")
+
+
 def _clump_summary(frame: pd.DataFrame) -> dict[str, Any]:
-    """The jobs' clump metadata, with the counts summed and the LD Stores merged."""
+    """The jobs' clump metadata, merged across jobs and across the two paths.
+
+    Each job reports the leads it clumped on the fly at its top level (``r2``,
+    ``kb``, ``hits``, ``leads``, ``absent``, ``ld_stores``), and those read from
+    releases' stored Clumps per release under ``stored``. The summary sums the
+    counts over both, merges ``stored`` and ``ld_stores``, and gives ``source``:
+    ``stored``, ``computed`` or ``mixed``. ``r2`` and ``kb`` are the on-the-fly
+    settings, ``None`` when nothing was clumped on the fly.
+    """
     per_job: list[dict[str, Any]] = frame.attrs.get("metadata_by_job") or [
         frame.attrs.get("metadata") or {}
     ]
     clumps = [m["clump"] for m in per_job if isinstance(m.get("clump"), Mapping)]
     summary: dict[str, Any] = {}
+    sources: list[str] = []
+    stored: dict[str, Any] = {}
     for clump in clumps:
+        sources.append(str(clump.get("source") or "computed"))  # older APIs only computed
         for key, value in clump.items():
             if key in ("hits", "leads", "absent") and isinstance(value, (int, float)):
                 summary[key] = summary.get(key, 0) + value
             elif key == "ld_stores" and isinstance(value, Mapping):
                 summary.setdefault("ld_stores", {}).update(value)
-            else:
-                summary.setdefault(key, value)
+            elif key == "stored" and isinstance(value, Mapping):
+                stored.update(value)
+            elif key != "source" and summary.get(key) is None:
+                summary[key] = value
+    for release in stored.values():
+        for key in ("hits", "leads", "absent", *_STORED_MARKERS):
+            count = release.get(key) if isinstance(release, Mapping) else None
+            if isinstance(count, (int, float)):
+                summary[key] = summary.get(key, 0) + count
+    if sources:
+        summary["source"] = sources[0] if len(set(sources)) == 1 else "mixed"
+    if stored:
+        summary["stored"] = stored
     return summary
 
 

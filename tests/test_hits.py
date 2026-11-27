@@ -79,7 +79,76 @@ def test_tophits_clump_defaults_sent_and_metadata_combined(client: Client) -> No
         "leads": 3,
         "absent": 14,
         "ld_stores": {"EUR": "eur-k10", "AFR": "afr-k10"},
+        "source": "computed",
     }
+
+
+STORED_CONFIGURATION = {"configuration": "k10", "threshold": 5e-8, "kb": 10000}
+
+
+def stored_part(release: str, hits: int) -> dict[str, Any]:
+    return {
+        release: {
+            "configuration": STORED_CONFIGURATION,
+            "hits": hits,
+            "leads": 2,
+            "absent": 1,
+            "imputed": 3,
+            "ambiguous": 0,
+            "not_clumped": 0,
+        }
+    }
+
+
+def mixed_meta(endpoint: str, body: dict[str, Any]) -> dict[str, Any]:
+    """Job 1 (a, b): every release stored. Job 2 (c): one stored, one computed."""
+    if body["analyses"] == ["a", "b"]:
+        clump: dict[str, Any] = {
+            "source": "stored",
+            "r2": None,
+            "kb": None,
+            "hits": 0,
+            "leads": 0,
+            "absent": 0,
+            "ld_stores": {},
+            "stored": stored_part("OGS-1/r1", 50),
+        }
+    else:
+        clump = {
+            "source": "mixed",
+            "r2": 0.001,
+            "kb": 3000,
+            "hits": 20,
+            "leads": 4,
+            "absent": 2,
+            "ld_stores": {"EUR": "eur-k10"},
+            "stored": stored_part("OGS-2/r1", 30),
+        }
+    return {"total": 2, "truncated": False, "clump": clump}
+
+
+@respx.mock
+def test_tophits_clump_merges_stored_and_computed_jobs(client: Client) -> None:
+    JobServer(BASE, hits, metadata=mixed_meta, limits={"result_rows": 2000, "lookup_analyses": 100})
+    frame = tophits(["a", "b", "c"], clump=True, client=client)
+    summary = frame.attrs["clump"]
+    assert summary["source"] == "mixed"
+    assert (summary["r2"], summary["kb"]) == (0.001, 3000)  # not the stored job's None
+    assert (summary["hits"], summary["leads"], summary["absent"]) == (100, 8, 4)
+    assert (summary["imputed"], summary["ambiguous"], summary["not_clumped"]) == (6, 0, 0)
+    assert set(summary["stored"]) == {"OGS-1/r1", "OGS-2/r1"}
+    assert summary["stored"]["OGS-1/r1"]["configuration"] == STORED_CONFIGURATION
+    assert summary["ld_stores"] == {"EUR": "eur-k10"}
+
+
+@respx.mock
+def test_tophits_clump_all_stored(client: Client) -> None:
+    JobServer(BASE, hits, metadata=mixed_meta)
+    frame = tophits(["a", "b"], clump=True, client=client)
+    summary = frame.attrs["clump"]
+    assert summary["source"] == "stored"
+    assert summary["r2"] is None and summary["kb"] is None
+    assert (summary["hits"], summary["leads"], summary["imputed"]) == (50, 2, 3)
 
 
 @respx.mock
