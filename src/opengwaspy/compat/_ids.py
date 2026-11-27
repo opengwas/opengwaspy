@@ -10,6 +10,7 @@ from typing import Any
 import pandas as pd
 
 import opengwaspy as og
+from opengwaspy.client import Client
 from opengwaspy.errors import UnsupportedOptionError
 
 _LEGACY = {"UKB-a:": "ukb-a-", "UKB-b:": "ukb-b-", "UKB-c:": "ukb-c-", "IEU-a:": "ieu-a-"}
@@ -53,18 +54,25 @@ class Resolved:
         return frame
 
 
-def resolve(ids: str | Iterable[str], *, stacklevel: int = 3) -> Resolved:
+def resolve(
+    ids: str | Iterable[str],
+    *,
+    stacklevel: int = 3,
+    warn: bool = True,
+    client: Client | None = None,
+) -> Resolved:
     """Translate analysis IDs, OpenGWAS IDs among them, with one ``gwasinfo`` lookup.
 
     Store-qualified and bare Data API IDs pass through. OpenGWAS IDs become the
     analyses the API resolves them to. A successor match is used with a warning;
     an ID nothing resolves is left out, with a warning giving the API's reason.
+    With ``warn=False``, the caller reports these from ``Resolved.opengwas``.
     """
     wanted = legacy_ids([ids] if isinstance(ids, str) else list(ids))
     resolved = Resolved()
     if not wanted:
         return resolved
-    info = og.gwasinfo(wanted)
+    info = og.gwasinfo(wanted, client=client)
     resolved.info = info
     entries = {str(e.get("id")): e for e in info.attrs.get("opengwas") or []}
     rows = info.to_dict("records")
@@ -102,7 +110,7 @@ def resolve(ids: str | Iterable[str], *, stacklevel: int = 3) -> Resolved:
             reason = "not served by the Data API"
             resolved.opengwas.append({"id": request, "reason": reason})
             missing.append(f"{request} ({reason})")
-    if successors:
+    if successors and warn:
         warnings.warn(
             "OpenGWAS IDs translated to a successor analysis, "
             + SUCCESSOR
@@ -110,7 +118,7 @@ def resolve(ids: str | Iterable[str], *, stacklevel: int = 3) -> Resolved:
             + "; ".join(successors),
             stacklevel=stacklevel,
         )
-    if missing:
+    if missing and warn:
         shown = "; ".join(missing[:10]) + (" ..." if len(missing) > 10 else "")
         warnings.warn(f"{len(missing)} IDs are left out: {shown}", stacklevel=stacklevel)
     return resolved

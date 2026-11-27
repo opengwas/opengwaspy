@@ -3,67 +3,22 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
 import anyio
-import httpx
 import pytest
 import respx
 from mcp import Client as MCPClient
-from mcp.types import CallToolResult
 
 from opengwaspy.auth import NoAuth, OpenGWASToken
 from opengwaspy.client import Client
-from opengwaspy.config import Config, ConfigError
+from opengwaspy.config import ConfigError
 from opengwaspy.mcp import create_server
 from opengwaspy.mcp.__main__ import main
 from opengwaspy.mcp.server import NO_CREDENTIAL, Session, profile_name, scrub
-from opengwaspy.transport import Transport
-from tests.fakes import FakeClock, JobServer
-
-BASE = "http://api.test"
-SECRET = "sekrit-token-value-123"
-
-
-def client_with(auth: Any) -> Callable[[], Client]:
-    def make() -> Client:
-        clock = FakeClock()
-        transport = Transport(
-            Config(base_url=BASE, auth=auth),
-            client=httpx.Client(),
-            sleep=clock.sleep,
-            clock=clock.monotonic,
-            wall_clock=clock.time,
-        )
-        return Client(transport=transport)
-
-    return make
-
-
-def run(factory: Callable[[], Client], body: Callable[[MCPClient], Awaitable[Any]]) -> Any:
-    server = create_server(client_factory=factory)
-
-    async def main_() -> Any:
-        async with MCPClient(server) as mcp:
-            return await body(mcp)
-
-    return anyio.run(main_)
-
-
-def call(
-    factory: Callable[[], Client], tool: str, args: dict[str, Any] | None = None
-) -> CallToolResult:
-    async def body(mcp: MCPClient) -> CallToolResult:
-        return await mcp.call_tool(tool, args or {})
-
-    result: CallToolResult = run(factory, body)
-    return result
-
-
-def text_of(result: CallToolResult) -> str:
-    return "\n".join(getattr(c, "text", "") for c in result.content)
+from tests.fakes import JobServer
+from tests.mcp_fakes import BASE, SECRET, call, client_with, run, text_of
 
 
 def serve(*, user: Any = None, user_status: int = 200) -> respx.Route:
