@@ -200,7 +200,7 @@ def register(server: MCPServer[Session]) -> None:
             notes=notes,
             provenance=prov,
         )
-        return session.scrub(result)
+        return session.finish(result)
 
     @server.tool(
         name="associations",
@@ -261,7 +261,7 @@ def register(server: MCPServer[Session]) -> None:
             notes=notes,
             provenance=prov,
         )
-        return session.scrub(result)
+        return session.finish(result)
 
     @server.tool(
         name="region_associations",
@@ -319,7 +319,7 @@ def register(server: MCPServer[Session]) -> None:
             notes=notes,
             provenance={"opengwas_ids": resolved.opengwas},
         )
-        return session.scrub(result)
+        return session.finish(result)
 
     @server.tool(
         name="phewas",
@@ -368,7 +368,7 @@ def register(server: MCPServer[Session]) -> None:
             notes=notes,
             provenance={"threshold": frame.attrs.get("threshold", threshold)},
         )
-        return session.scrub(result)
+        return session.finish(result)
 
     @server.tool(
         name="variant_info",
@@ -440,7 +440,7 @@ def register(server: MCPServer[Session]) -> None:
             ),
             notes=notes,
         )
-        return session.scrub(result)
+        return session.finish(result)
 
 
 def _not_found(values: list[str], frame: pd.DataFrame) -> list[str]:

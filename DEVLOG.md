@@ -9,6 +9,22 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #94: MCP server with OpenGWAS tokens (JWT) through the Gateway
+
+- **Credential reload:** `opengwaspy.mcp.credentials.ReloadingAuth` wraps the configured provider. On a 401 (through the transport's existing `refresh()` hook), and before a tool call when no credential is configured, it re-reads the environment and config file. A token saved to the config file (for example by `compat.get_jwt()`) is used on the next call with no restart. A token in the server's environment cannot change while it runs, so the 401 message says to update the assistant's MCP settings and restart.
+- **Messages:** the 401/403 message explains the 14-day lifetime, the profile page, and both places a token may live. It never shows the token: `Session.scrub` now reads the current credential each time, so a reloaded token is hidden too.
+- **Allowance:**
+  - `Transport.allowance` records the Gateway's `X-Allowance-Limit`, `-Remaining` and `-Reset` (names checked in opengwas-gateway `03a9db0`, `app/main.py`).
+  - `Session.finish()` adds it to each tool result's provenance and summary ("Allowance left: 99,000 of 100,000, until …"), and `api_status` shows it under `auth`.
+  - The MCP client uses `max_retry_wait=30`, so an exhausted allowance (a 429 with a long `Retry-After`) fails at once with the reset time, rather than an automatic long wait.
+- **Gateway prefix:** with `profile = "gateway"` and `jwt`, calls go to `https://api.opengwas.io/ogdb/api/...` with `Authorization: Bearer <JWT>`.
+- `Context.elicit_url` (pointing the user to the profile page) is not used yet: the error message carries the link, and no tool takes a token.
+- **Tests:**
+  - `tests/test_mcp_auth.py` (7), with Gateway fakes: the prefix and header; a renewed token used without restart; a token in the environment; a token saved after start; allowance in results and `api_status`; an allowance 429 failing fast with the reset date; `ReloadingAuth`.
+  - Plus `test_allowance_headers_are_recorded`.
+  - ruff, mypy strict (68 files) and `pytest` (319 passed, 99% coverage) pass.
+- **Live:** stdio with the developer key on 6433 (through `ReloadingAuth`): `api_status` and `ld_proxies` work; no allowance is shown (the Data API sends no `X-Allowance-*`). Live tests through the Gateway wait on #7.
+
 ## 2026-11-27 - #91: MCP data tools
 
 - **`top_hits`:** up to 10 analyses, `threshold` (5e-8), optional server clumping (`clump`, with `r2`, `kb`, `ancestry` only when clumping; refused otherwise). Fetches up to 1,000 hits per analysis and shares `max_rows` fairly between analyses. Notes for truncation and for hits absent from the LD panel; `attrs["clump"]` in provenance.

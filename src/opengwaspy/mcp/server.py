@@ -11,30 +11,34 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 import warnings
 from collections.abc import AsyncIterator, Callable, Iterable
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, TypeVar
 
 import anyio.to_thread
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
+from pydantic import BaseModel
 
 import opengwaspy.client as client_module
 from opengwaspy import __version__
-from opengwaspy.auth import DeveloperKey, OpenGWASToken
+from opengwaspy.auth import AuthProvider, DeveloperKey, OpenGWASToken
 from opengwaspy.client import Client
-from opengwaspy.config import PROFILES, ConfigError
-from opengwaspy.errors import AuthError, OpenGWASError
+from opengwaspy.config import PROFILES, Config, ConfigError
+from opengwaspy.errors import AuthError, OpenGWASError, RateLimitError
 from opengwaspy.ld import ld_stores
+from opengwaspy.mcp.credentials import ReloadingAuth
 
 __all__ = ["READ_ONLY", "Session", "create_server", "scrub"]
 
 log = logging.getLogger(__name__)
 
 T = TypeVar("T")
+R = TypeVar("R", bound=BaseModel)
 
 #: Where users get an OpenGWAS token.
 PROFILE_PAGE = "https://api.opengwas.io/profile/"
@@ -49,10 +53,16 @@ NO_CREDENTIAL = (
 
 AUTH_REFUSED = (
     "The API refused the credential ({detail}). An OpenGWAS token lasts 14 days, and "
-    f"getting a new one revokes the old: get a new token from {PROFILE_PAGE}, set it as "
-    "OPENGWAS_JWT for the MCP server, and restart the server. "
-    "Never paste a credential into the chat."
+    f"getting a new one revokes the old. Get a new token from {PROFILE_PAGE}. If the token "
+    "is kept in the opengwaspy config file (as python -c 'import opengwaspy.compat as c; "
+    "c.get_jwt()' saves it), save the new one there: the server uses it on the next call. "
+    "If it is set as OPENGWAS_JWT in the AI assistant's MCP settings, change it there and "
+    "restart the server. Never paste a credential into the chat."
 )
+
+#: Most seconds one MCP call waits on Retry-After or the Gateway allowance before
+#: failing with the reset time, rather than leaving the assistant waiting.
+MAX_RETRY_WAIT = 30.0
 
 INSTRUCTIONS = """\
 Tools for OpenGWAS: GWAS summary statistics, top hits, PheWAS, variants and LD,
@@ -82,22 +92,15 @@ class Session:
 
     client: Client | None
     config_error: str | None = None
-    _secrets: tuple[str, ...] = field(default=(), repr=False)
 
-    def __post_init__(self) -> None:
-        if self.client is not None:
-            secrets: list[str] = []
-            for value in self.client.config.auth.headers().values():
-                secrets.append(value)
-                scheme, _, token = value.partition(" ")
-                if token and scheme.lower() == "bearer":
-                    secrets.append(token)
-            self._secrets = tuple(s for s in secrets if len(s) >= 4)
+    def _provider(self) -> AuthProvider | None:
+        auth = self.client.config.auth if self.client else None
+        return auth.current if isinstance(auth, ReloadingAuth) else auth
 
     @property
     def auth_kind(self) -> str:
         """``OpenGWAS token``, ``developer key`` or ``none``: never the value."""
-        auth = self.client.config.auth if self.client else None
+        auth = self._provider()
         if isinstance(auth, OpenGWASToken):
             return "OpenGWAS token"
         if isinstance(auth, DeveloperKey):
@@ -105,16 +108,62 @@ class Session:
         return "none" if auth is None or not auth.headers() else "custom"
 
     def require_client(self) -> Client:
-        """The client, if it has a credential; else a tool error saying how to set one."""
+        """The client, if it has a credential; else a tool error saying how to set one.
+
+        With no credential, the configuration is read again first, so one saved
+        to the config file since the server started is used.
+        """
         if self.client is None:
             raise ToolError(f"The opengwaspy configuration is invalid: {self.config_error}")
+        if self.auth_kind == "none":
+            self.client.config.auth.refresh()
         if self.auth_kind == "none":
             raise ToolError(NO_CREDENTIAL)
         return self.client
 
+    def _secrets(self) -> list[str]:
+        secrets: list[str] = []
+        if self.client is not None:
+            for value in self.client.config.auth.headers().values():
+                secrets.append(value)
+                scheme, _, token = value.partition(" ")
+                if token and scheme.lower() == "bearer":
+                    secrets.append(token)
+        return [s for s in secrets if len(s) >= 4]
+
     def scrub(self, value: T) -> T:
         """``value`` with every credential replaced by ``<hidden>``."""
-        return scrub(value, self._secrets)
+        return scrub(value, self._secrets())
+
+    @property
+    def allowance(self) -> dict[str, Any] | None:
+        """The Gateway allowance left, from the latest response, for showing."""
+        raw = self.client.transport.allowance if self.client is not None else None
+        if not raw:
+            return None
+        out: dict[str, Any] = {k: int(v) for k, v in raw.items() if k != "reset"}
+        if "reset" in raw:
+            out["reset"] = _when(raw["reset"])
+        return out
+
+    def finish(self, result: R) -> R:
+        """A tool's result, with the allowance left (through the Gateway), scrubbed."""
+        allowance = self.allowance
+        if allowance is not None and hasattr(result, "provenance"):
+            result.provenance["allowance"] = allowance
+            if "remaining" in allowance and hasattr(result, "summary"):
+                left = f" Allowance left: {allowance['remaining']:,}"
+                if "limit" in allowance:
+                    left += f" of {allowance['limit']:,}"
+                if "reset" in allowance:
+                    left += f", until {allowance['reset']}"
+                result.summary += left + "."
+        return self.scrub(result)
+
+
+def _when(unix: float) -> str:
+    """A Unix time as local ``YYYY-MM-DD HH:MM:SS TZ``."""
+    return time.strftime("%Y-%m-%d %H:%M:%S %Z", time.localtime(unix))
 
 
 def scrub(value: T, secrets: Iterable[str]) -> T:
@@ -145,8 +194,15 @@ def scrub(value: T, secrets: Iterable[str]) -> T:
 
 def tool_error(exc: Exception, session: Session) -> ToolError:
     """A tool error the model can act on, for an opengwaspy exception."""
+    allowance = session.allowance or {}
     if isinstance(exc, AuthError):
         message = AUTH_REFUSED.format(detail=str(exc) or "401")
+    elif isinstance(exc, RateLimitError) and allowance.get("remaining") == 0:
+        message = (
+            f"Your OpenGWAS allowance is used up until {allowance.get('reset', 'its reset')}. "
+            "Try again then, or ask for less (fewer analyses or variants). "
+            f"({exc})"
+        )
     else:
         message = f"{type(exc).__name__}: {exc}"
     return ToolError(session.scrub(message))
@@ -209,7 +265,8 @@ def create_server(
     def make_client() -> Client:
         if client_factory is not None:
             return client_factory()
-        return Client(url, profile=profile)
+        auth = ReloadingAuth(lambda: Config.load(url, profile=profile).auth)
+        return Client(url, profile=profile, auth=auth, max_retry_wait=MAX_RETRY_WAIT)
 
     @asynccontextmanager
     async def lifespan(_: MCPServer[Session]) -> AsyncIterator[Session]:
@@ -311,6 +368,8 @@ def register_status(server: MCPServer[Session]) -> None:
                 out["auth"]["user"] = value
             else:
                 out[name] = value
+        if session.allowance is not None:
+            out["auth"]["allowance"] = session.allowance
         return session.scrub(out)
 
 

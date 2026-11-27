@@ -146,7 +146,7 @@ def register(server: MCPServer[Session]) -> None:
             notes=[*notes, *_absent_note(frame)],
             provenance={**_ld_provenance(frame), "rsids": rsid_of},
         )
-        return session.scrub(result)
+        return session.finish(result)
 
     @server.tool(
         name="ld_matrix",
@@ -189,7 +189,7 @@ def register(server: MCPServer[Session]) -> None:
             notes=[*notes, *_absent_note(square)],
             provenance={**_ld_provenance(square), "rsids": rsid_of},
         )
-        return session.scrub(result)
+        return session.finish(result)
 
 
 def _labelled(square: pd.DataFrame, rsid_of: dict[str, str]) -> pd.DataFrame:
