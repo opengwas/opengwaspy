@@ -10,6 +10,8 @@ returns, as a last line of defence.
 from __future__ import annotations
 
 import logging
+import threading
+import warnings
 from collections.abc import AsyncIterator, Callable, Iterable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -20,6 +22,7 @@ from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
+import opengwaspy.client as client_module
 from opengwaspy import __version__
 from opengwaspy.auth import DeveloperKey, OpenGWASToken
 from opengwaspy.client import Client
@@ -149,6 +152,24 @@ def tool_error(exc: Exception, session: Session) -> ToolError:
     return ToolError(session.scrub(message))
 
 
+_WARNINGS = threading.Lock()
+
+
+async def call_noting(session: Session, fn: Callable[[], T]) -> tuple[T, list[str]]:
+    """Like :func:`call`, also returning the warnings ``fn`` raised, as notes.
+
+    Python's warning filters are process-wide, so such calls run one at a time.
+    """
+
+    def run() -> tuple[T, list[str]]:
+        with _WARNINGS, warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            value = fn()
+        return value, list(dict.fromkeys(str(w.message) for w in caught))
+
+    return await call(session, run)
+
+
 async def call(session: Session, fn: Callable[[], T]) -> T:
     """Run a blocking opengwaspy call in a worker thread, turning its errors into tool errors."""
     try:
@@ -202,9 +223,17 @@ def create_server(
         session = Session(client, error)
         if session.auth_kind == "none":
             log.warning("no OpenGWAS credential is configured; tools will say how to set one")
+        # The ieugwaspy-compatible layer (used for LD proxies) calls the default
+        # client, so it is the session's client while the server runs.
+        with client_module._default_lock:
+            previous = client_module._default
+            if client is not None:
+                client_module._default = client
         try:
             yield session
         finally:
+            with client_module._default_lock:
+                client_module._default = previous
             if client is not None:
                 client.close()
 
@@ -217,9 +246,10 @@ def create_server(
         lifespan=lifespan,
     )
     register_status(server)
-    from opengwaspy.mcp import ld, metadata
+    from opengwaspy.mcp import data, ld, metadata
 
     metadata.register(server)
+    data.register(server)
     ld.register(server)
     return server
 
