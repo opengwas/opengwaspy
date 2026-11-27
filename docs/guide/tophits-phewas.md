@@ -32,10 +32,18 @@ UserWarning: some analyses have more than 3 hits at p <= 5e-08; only the stronge
 
 ### Clumped on the server
 
-With `clump=True`, the Data API clumps **every** hit of each analysis at the threshold in an LD Store, and returns only the leads, strongest first, each with `clump_size` (the hits in its clump):
+With `clump`, the Data API clumps **every** hit of each analysis at the threshold, and returns only the leads, strongest first, each with `clump_size` (the hits in its clump) and `clump_source`. The clumps come from one of two places:
+
+| Request | A release with stored Clumps | A release without |
+|---|---|---|
+| `clump=True` at `threshold=5e-8` | **stored**: made when the Store was built, in its own configuration; no LD job, so fast | computed at r² 0.001 within 3,000 kb |
+| `r2` and `kb` given | stored only if both equal the stored configuration; otherwise computed | computed |
+| another `threshold` | computed | computed |
+
+Most format 0.3.0 Store Releases carry **stored Clumps** of their 5e-8 tier. On the served Stores they were made at r² equal to the EUR LD Store's `t_far` (about 0.032) within 10,000 kb, in the HGDP+1kGP EUR panel: not the same settings as the computed default. `attrs["clump"]["stored"]` gives each release's configuration. To clump every release the same way, on the fly, give the settings:
 
 ```python
-leads = og.tophits("OGS-00006:GCST90199621", clump=True)
+leads = og.tophits("OGS-00006:GCST90199621", clump={"r2": 0.001, "kb": 3000})
 leads[["rsid", "alid", "z", "p", "clump_size"]]
 ```
 
@@ -57,11 +65,14 @@ leads.attrs["clump"]
  'ld_stores': {'EUR': 'hgdp1kgp-v2-EUR-k10'}}
 ```
 
-- **Defaults:** r² 0.001 within 3,000 kb, in the LD Store of each analysis's own ancestry, or EUR when it has none. Choose with a mapping: `clump={"r2": 0.01, "kb": 1000, "ancestry": "EAS"}`, or `"store"` for an LD Store by name (see `og.ld_stores()`).
+(Recorded before the API reported `source`; it now adds `'source': 'computed'`.)
+
+- **`attrs["clump"]`** has `source` (`stored`, `computed` or `mixed`); `r2`, `kb` and `ld_stores` for the leads clumped on the fly (`None` when none were); the counts `hits`, `leads` and `absent` over both paths, and `imputed`, `ambiguous` and `not_clumped` for hits stored Clumps left out; and `stored`, each stored release's configuration and counts.
+- **Computed defaults:** r² 0.001 within 3,000 kb, in the LD Store of each analysis's own ancestry, or EUR when it has none. Choose with a mapping: `clump={"r2": 0.01, "kb": 1000, "ancestry": "EAS"}`, or `"store"` for an LD Store by name (see `og.ld_stores()`).
 - **`limit`** then applies to each analysis's leads.
 - **`absent`** counts hits the LD Store does not hold. They are not clumped, and not returned.
 - **Settings the LD Store cannot answer exactly** are refused with `LDRefusal`, as [`ld_clump`](ld.md#clumping) refuses them. For example, r² 0.001 beyond 3,000 kb is refused, and the message says what the store can answer.
-- It is one job. While its hits wait for an LD worker, its status goes back from `running` to `queued`.
+- It is one job. When it clumps on the fly, while its hits wait for an LD worker, its status goes back from `running` to `queued`.
 
 ## PheWAS
 

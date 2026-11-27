@@ -9,6 +9,16 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #109: top hits from stored Clumps
+
+- **Upstream:** ogdb-api#197 (merge `bfcc279`, 27 Nov 2026). `clump: {}` at 5e-8 now answers from a release's stored Clumps where it has them (served Stores: r² = EUR `t_far` ≈ 0.032 within 10,000 kb, HGDP+1kGP EUR); r2/kb given use them only on an exact match; otherwise computed at r² 0.001 within 3,000 kb. Read from ogdb-api `origin/main` (`ld_clump.merge_stored`, `stored_clumps.py`, `docs/guide/tophits.qmd`), fetched read-only.
+- **Bug fixed:** `_clump_summary` took `source`, `stored`, `r2` and `kb` from the first job only (`setdefault`). A multi-job call could report `source: stored` when another job computed, drop other jobs' stored configurations, and report `r2: None` when the first job was all stored. The stored counts per release (`hits`, `leads`, `absent`, `imputed`, `ambiguous`, `not_clumped`) were not counted.
+- **Now:** `attrs["clump"]` merges `source` (`stored`, `computed`, `mixed`; an API answer without `source` counts as computed), takes the first non-`None` `r2`/`kb`, sums the counts over both paths, and merges `stored`.
+- **Docs:** `tophits` docstring and the top-hits guide (the stored/computed table; the recorded example now passes `clump={"r2": 0.001, "kb": 3000}`, which is what it was recorded with). MCP `top_hits`: the description says when stored Clumps are used; `clump_source` is a default column; a note says how the leads were clumped.
+- **compat:** `compat.tophits` always sends `r2`, `kb` and `store`, so it uses stored Clumps only on an exact match; ieugwaspy's defaults (0.001, 10,000 kb) never match. No change.
+- **Checks:** ruff, mypy (72 files), `pytest` 367 passed (coverage 98.9%), `mkdocs build --strict`.
+- **Not live-checked:** 6433 still refuses format 0.3.0 Stores (`release_unavailable`, see #95). Live check on a redeployed 6433: one Dense Store's `tophits(..., clump=True)` reports `source: stored`.
+
 ## 2026-11-27 - #95: MCP docs, live smoke test and CI
 
 - **Docs:** `docs/guide/ai-assistants.md` ("Use with AI assistants", in the Guide nav, linked from the home page). It covers:
