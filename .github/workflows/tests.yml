@@ -62,7 +62,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: uv sync --locked
       # The Local Source's tests read ogquery's contract releases and LD Test Panel (tests/data).
-      - run: uv run pytest tests/test_local.py tests/test_local_ld.py --no-cov
+      - run: uv run pytest tests/test_local.py tests/test_local_ld.py tests/test_local_rho.py --no-cov
 
   package:
     name: package

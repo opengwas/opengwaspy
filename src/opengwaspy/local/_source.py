@@ -45,6 +45,17 @@ _UNBOUNDED = 10**12
 _OPENGWAS_ID = re.compile(r"^[a-z0-9]+-[a-z]-[A-Za-z0-9_]+$")
 
 _ASSOCIATIONS = ("api/associations", "api/associations/range", "api/associations/analysis")
+#: The Rho Matrix's estimation settings, as its group's attributes name them (ogdb-api rho.py).
+_RHO_SETTINGS = (
+    "method",
+    "z_thresh",
+    "min_nulls",
+    "grid_n",
+    "window_bp",
+    "n_variants_used",
+    "observed_only",
+    "n_analyses",
+)
 _VARIANTS = {"api/variants/rsid": "rsids", "api/variants/chrpos": "positions"}
 #: The variant fields of a variant lookup's rows, as the API gives them.
 _VARIANT_FIELDS = ("alid", "chromosome", "position", "effect_allele", "other_allele", "rsid")
@@ -96,6 +107,7 @@ class LocalRelease:
     completion_state: str
     query: Any = field(repr=False)
     analyses: dict[str, dict[str, Any]] = field(repr=False, default_factory=dict)
+    store: Any = field(repr=False, default=None)
     top_hit_thresholds: tuple[float, ...] = ()
     phewas: bool = False
     variants_rsid: bool = False
@@ -158,6 +170,7 @@ def _open(path: str | Path) -> LocalRelease:
         completion_state=str(manifest.completion_state),
         query=query,
         analyses=analyses,
+        store=release,
         top_hit_thresholds=tuple(
             t for t in top_hits.TOP_HIT_THRESHOLDS if (tiers / top_hits.threshold_key(t)).is_dir()
         ),
@@ -355,6 +368,31 @@ class LocalSource:
         )
         frame.attrs["opengwas_batches"] = []
         return frame
+
+    def rho(self, ref: Mapping[str, str], analyses: Sequence[str] | None) -> dict[str, Any]:
+        """A release's Rho Matrix, or the sub-matrix of ``analyses`` (as ``opengwaspy.rho``)."""
+        [release] = self._releases_named([ref])
+        group = _rho_group(release)
+        if group is None:
+            raise RequestError(
+                422,
+                "rho_unavailable",
+                f"{release.store_id} holds no Rho Matrix. One is estimated from a Dense grid (a "
+                f"Dense Store, or a Hybrid's Dense Component), and this {release.layout} Store "
+                "Release carries none",
+            )
+        ids = None
+        if analyses is not None:
+            ids = [self._analysis(str(a), [release])[1] for a in analyses]
+        answer = _translated(lambda: release.query.rho_matrix(ids))
+        attributes = dict(group.attrs)
+        return {
+            "analysis_id": [str(a) for a in answer["analysis_id"]],
+            "rho": answer["rho"],
+            "n_null": answer["n_null"],
+            "settings": {k: attributes[k] for k in _RHO_SETTINGS if k in attributes},
+            "provenance": self._provenance("api/rho", [release]),
+        }
 
     def ld_listing(self) -> list[dict[str, Any]]:
         """The open LD Stores, as ``ld_stores()`` lists them."""
@@ -661,6 +699,8 @@ def _translated(answer: Callable[[], T]) -> T:
         raise RequestError(404, "analysis_not_found", str(exc)) from exc
     except identity.VariantNormalisationError as exc:
         raise RequestError(400, "invalid_query", str(exc)) from exc
+    except _ogquery("ogquery.rho").OverflowOnlyAnalysisError as exc:
+        raise RequestError(422, "rho_unavailable", str(exc)) from exc
 
 
 def _rows(release: LocalRelease, found: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -753,3 +793,15 @@ def _analysis_row(release: LocalRelease, row: Mapping[str, Any]) -> dict[str, An
         "store_id": release.store_id,
         "release_id": release.release_id,
     }
+
+
+def _rho_group(release: LocalRelease) -> Any:
+    """The release's Rho Matrix group (a Hybrid's is its Dense Component's), or None."""
+    store = release.store
+    try:
+        if release.layout.lower().endswith("hybrid"):
+            store = store.dense_component()
+        root = store.arrays()
+    except Exception:  # a layout without a Dense grid
+        return None
+    return root["rho"] if "rho" in root else None  # noqa: SIM401  (a zarr group, not a dict)
