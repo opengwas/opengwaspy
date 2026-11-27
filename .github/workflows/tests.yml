@@ -42,6 +42,9 @@ jobs:
       - run: uv sync --locked
       # Unit tests only: the live tests need the API and a key, which CI does not have.
       - run: uv run pytest
+        env:
+          # ogquery needs Python 3.12+: before that the Local Source's reader cannot run.
+          OPENGWASPY_COVERAGE_OMIT: ${{ (matrix.python == '3.10' || matrix.python == '3.11') && '*/opengwaspy/local/_source.py' || '' }}
 
   local:
     name: local source (${{ matrix.os }}, Python ${{ matrix.python }})

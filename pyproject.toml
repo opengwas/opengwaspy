@@ -107,6 +107,9 @@ markers = [
 [tool.coverage.run]
 branch = true
 source = ["opengwaspy"]
+# CI sets this on Python 3.10 and 3.11, where ogquery (the local extra) cannot be installed,
+# so the Local Source's reader code cannot run there; it is covered on 3.12 and later.
+omit = ["${OPENGWASPY_COVERAGE_OMIT-}"]
 
 [tool.coverage.report]
 fail_under = 90

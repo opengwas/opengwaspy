@@ -15,6 +15,7 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - **Public functions:** `tophits`, `phewas`, `variants_rsid` and `variants_chrpos` take a `Source`; `gwasinfo` and `batches` take a Local Source too. The `Source` protocol gains `batches()` (PheWAS chooses releases by `capabilities.phewas`). Clumped top hits on a Local Source raise `LocalUnsupported` until #115.
 - **Differences, documented:** local `gwasinfo` lacks the catalog's fields (`trait_class`, `outcome_type`, ...) and does not translate OpenGWAS IDs; its numbers are parsed from `analyses.tsv`.
 - **Checks:** ruff, mypy (78 files), `pytest` 398 passed (coverage 99%; `local/_source.py` 98%), `mkdocs build --strict`.
+- **CI fix:** on Python 3.10 and 3.11 ogquery cannot be installed, so `local/_source.py` never runs there and total coverage fell to 89% (first CI run of #121). CI now sets `OPENGWASPY_COVERAGE_OMIT` to that file on those two Pythons only (`[tool.coverage.run] omit`); 3.12+ still covers it. Checked locally on 3.10: 374 passed, 1 skipped, 98%.
 
 ## 2026-11-27 - #113: the Local Source, and association queries on it
 
