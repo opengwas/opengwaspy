@@ -9,6 +9,44 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #83: job results checked against their manifest
+
+- `Job.pages()` now requires each page to be the next in sequence (`page_index` 0, 1, …) and to start at the next row (`row_offset`). It takes `page_count` and `total_rows` (or `row_count`) from the manifest in the job's status, or else from the first page. When those are declared, it refuses with `ProtocolError`:
+  - a result that ends before `page_count`;
+  - a result that runs past `page_count`;
+  - a result whose rows differ from `total_rows`.
+
+  The checks run before the last page is yielded, so `to_frame()` never returns an incomplete result. The manifest fields are as built by ogdb-api `ogdb_api/jobs.py` (`page_count`, `total_rows`, `page_row_offsets`).
+- **Tests:**
+  - a valid two-page result;
+  - an empty result;
+  - the issue's premature final page (one row, where two pages and three rows were declared);
+  - a manifest on the page only;
+  - a gap, a repeat, a wrong offset, and an overrun;
+  - a manifest without counts.
+
+  After merging #80's changes, `pytest` passed 334 tests; `jobs.py` coverage is 100%.
+- **Live, 6433:** `pytest -m live tests/test_live_ld.py` passed 5, with LD job results passing the new checks. The 3 data-job tests in `test_live_jobs.py` fail with `503 release_unavailable`, the current 6433 outage (OGS-00006 at format 0.3.0), not this change.
+
+## 2026-11-27 - #80: `Job.wait` treats its timeout as a deadline
+
+- `Job.wait(timeout=...)` now:
+  - cuts each poll sleep short to meet the deadline;
+  - raises `JobTimeout` (without cancelling the job) if the deadline has passed before a sleep;
+  - counts the time a status call takes (retries included) against the deadline, so a success seen only after the deadline is a `JobTimeout` too.
+
+  A success seen at or before the deadline is accepted.
+- **Before:** with a 20 s suggested first poll and `timeout=1`, the wait slept 20 s and returned success.
+- **Now** it polls at 1 s and, with the job still running, raises `JobTimeout` at 1 s.
+- **Tests (fake clock):**
+  - the 20 s / 1 s case;
+  - a late success after a slow status call (no cancellation);
+  - every sleep bounded (5, 5, 2 for a 12 s timeout);
+  - success within the deadline;
+  - `timeout=0`.
+
+  `pytest` passed 324 tests, and mypy and ruff are clean.
+
 ## 2026-11-27 - #94: MCP server with OpenGWAS tokens (JWT) through the Gateway
 
 - **Credential reload:** `opengwaspy.mcp.credentials.ReloadingAuth` wraps the configured provider. On a 401 (through the transport's existing `refresh()` hook), and before a tool call when no credential is configured, it re-reads the environment and config file. A token saved to the config file (for example by `compat.get_jwt()`) is used on the next call with no restart. A token in the server's environment cannot change while it runs, so the 401 message says to update the assistant's MCP settings and restart.

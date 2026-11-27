@@ -276,22 +276,37 @@ class Job:
 
         Raises:
             JobFailed: The job failed, was cancelled, or expired.
-            JobTimeout: ``timeout`` passed first; the job keeps running.
+            JobTimeout: ``timeout`` passed first; the job keeps running. The timeout
+                is a deadline: poll sleeps are cut short to meet it, and the time
+                status calls take (with their retries) counts against it.
         """
         clock, sleep = self.transport.clock, self.transport.sleep
         started = clock()
+        deadline = None if timeout is None else started + max(timeout, 0.0)
         delay = float(self.accepted.get("poll_after_seconds") or 0.0)
+        state = str(self.accepted.get("status") or (self._last and self._last.status) or "queued")
         try:
             while True:
                 if delay:
-                    sleep(max(delay, MIN_POLL))
+                    wait = max(delay, MIN_POLL)
+                    if deadline is not None:
+                        left = deadline - clock()
+                        if left <= 0:
+                            raise JobTimeout(self.job_id, state, clock() - started)
+                        wait = min(wait, left)
+                    sleep(wait)
                 status = self.status()
+                state = status.status
                 if progress is not None:
                     progress(status)
+                # The deadline includes the time the status call took, retries and all:
+                # a job seen to finish only after it is still a timeout.
+                if deadline is not None and clock() > deadline:
+                    raise JobTimeout(self.job_id, state, clock() - started)
                 if status.finished:
                     break
-                if timeout is not None and clock() - started >= timeout:
-                    raise JobTimeout(self.job_id, status.status, clock() - started)
+                if deadline is not None and clock() >= deadline:
+                    raise JobTimeout(self.job_id, state, clock() - started)
                 delay = max(status.poll_after, MIN_POLL)
         except KeyboardInterrupt:
             if cancel_on_interrupt:
