@@ -45,9 +45,24 @@ Switching between the API and your downloads is that one argument.
 | `tophits` (unclumped), `phewas` | yes, from each release's Top-Hit Index and by-variant index, as the API answers them |
 | `variants_rsid`, `variants_chrpos` | yes |
 | `gwasinfo`, `batches` | yes, from each release's own `analyses.tsv` and manifest (below) |
+| `ld_matrix`, `ld_region`, `ld_clump`, `ld_proxies`, `ld_reflookup`, `ld_stores` | yes, from downloaded LD Stores and Genotype Stores (below) |
 | clumped `tophits`, `rho`, HapMap3 | coming (#115) |
-| LD from downloaded LD Stores | coming (#116) |
-| `gwasinfo_search`, `gwasinfo_files`, `status`, `user`, the API's LD Stores | no: they need the Data API |
+| `gwasinfo_search`, `gwasinfo_files`, `status`, `user` | no: they need the Data API |
+
+## LD from downloaded LD Stores
+
+Open LD Stores (and Genotype Stores) with `ld=`, beside or instead of Store Releases:
+
+```python
+with og.local(ld=["/data/ld-stores/hgdp1kgp-v2-EUR-k10.store"]) as source:
+    og.ld_stores(client=source)
+    og.ld_matrix(["7:105561135:A:G", "7:105562045:C:T"], ancestry="EUR", client=source)
+```
+
+- **Names:** a store is named by its directory, without `.store`, as the API names it. Its ancestry comes from its provenance. With several stores of one ancestry, name the one you want with `store=`; asking by ancestry is refused rather than guessed.
+- **The same answers and refusals** as the API's LD operations: a pair the store does not hold is missing unless you pass `fill`, and a request the store cannot answer exactly raises `LDRefusal` with its reason.
+- **No region limit.** The API refuses a region of more than 2,000 variants; locally `ld_region` answers any radius the store allows, so mind memory (the matrix is n² numbers).
+- **Genotype Stores** compute r from the genotypes they pin, with ogquery's `genotype` extra: `pip install "opengwaspy[local-genotype]"` (pgenlib; Linux and macOS only). A Genotype Store pins each pgen file's size, checksum and modification time: unpack downloads keeping file times (`tar` does), or it is refused.
 
 **Metadata.** `gwasinfo` on a Local Source gives each release's `analyses.tsv` fields (trait, ancestry, sample size, effect scale, licence, publication and more), with numbers as numbers and empty fields missing, plus `id`, `store_id` and `release_id`. Fields the API's Analysis Catalog adds, such as `trait_class` and `outcome_type`, are not in a release, so they are absent. `batches` lists the open releases with their `capabilities`, and adds `format_version`, `layout`, `completion_state` and `path`.
 

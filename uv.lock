@@ -2135,6 +2135,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/89/76/040a855eb07712f389608893ce7984d48b6908abc17c27ee10ddec646d41/ogquery-0.5.0-py3-none-any.whl", hash = "sha256:6a42885014e2b8922f62d6bb85f5c2a02b87e0b753b566c2d256d3fd42b52e74", size = 321329, upload-time = "2026-11-27T07:42:33.793Z" },
 ]
 
+[package.optional-dependencies]
+genotype = [
+    { name = "pgenlib" },
+    { name = "threadpoolctl" },
+]
+
 [[package]]
 name = "opengwaspy"
 source = { editable = "." }
@@ -2149,6 +2155,9 @@ dependencies = [
 local = [
     { name = "ogquery", marker = "python_full_version >= '3.12'" },
 ]
+local-genotype = [
+    { name = "ogquery", extra = ["genotype"], marker = "python_full_version >= '3.12'" },
+]
 mcp = [
     { name = "mcp" },
 ]
@@ -2158,6 +2167,7 @@ dev = [
     { name = "mcp" },
     { name = "mypy" },
     { name = "ogquery", marker = "python_full_version >= '3.12'" },
+    { name = "ogquery", extra = ["genotype"], marker = "python_full_version >= '3.12' and sys_platform != 'win32'" },
     { name = "pandas-stubs", version = "2.3.3.260113", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pandas-stubs", version = "3.1.0.261029", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pytest" },
@@ -2178,16 +2188,18 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=2.3,<3" },
     { name = "ogquery", marker = "python_full_version >= '3.12' and extra == 'local'", specifier = ">=0.5,<0.6" },
+    { name = "ogquery", extras = ["genotype"], marker = "python_full_version >= '3.12' and extra == 'local-genotype'", specifier = ">=0.5,<0.6" },
     { name = "pandas", specifier = ">=2.0" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
 ]
-provides-extras = ["local", "mcp"]
+provides-extras = ["local", "local-genotype", "mcp"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "mcp", specifier = ">=2.3,<3" },
     { name = "mypy", specifier = ">=1.13" },
     { name = "ogquery", marker = "python_full_version >= '3.12'", specifier = ">=0.5,<0.6" },
+    { name = "ogquery", extras = ["genotype"], marker = "python_full_version >= '3.12' and sys_platform != 'win32'", specifier = ">=0.5,<0.6" },
     { name = "pandas-stubs", specifier = ">=2.0" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-cov", specifier = ">=5.0" },
@@ -2433,6 +2445,32 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/5a/82/42f767fc1c1143d6fd36efb827202a2d997a375e160a71eb2888a925aac1/pathspec-1.1.1.tar.gz", hash = "sha256:17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a", size = 135180, upload-time = "2026-04-27T01:46:08.907Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl", hash = "sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189", size = 57328, upload-time = "2026-04-27T01:46:07.06Z" },
+]
+
+[[package]]
+name = "pgenlib"
+version = "0.95.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" } },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3b/29/002d3cac9efa70e3bf45b5f854961a69800f62405e4624cdd9bc3f36c34b/pgenlib-0.95.2.tar.gz", hash = "sha256:3aacd6d336f6fdb31c6ae0b0cc285065c770ed26e5d92bff8b3051e0af5cfd53", size = 1176233, upload-time = "2026-11-08T04:12:28.998Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a5/ac/e0868cfb49bdbcfa3bd56a3c9b60af0e9301471c630d50d721445f39fe78/pgenlib-0.95.2-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:f93e3bca9629ffe1a88ac1f6d8f0e6c94914bd6d56b3891729ebc96c451fdaf7", size = 2443831, upload-time = "2026-11-08T04:12:00.116Z" },
+    { url = "https://files.pythonhosted.org/packages/fb/57/5db4dbdcbb64d4598149115834ad5f3ab90228c0cd10383db2122989ed91/pgenlib-0.95.2-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:93dd99ea676722caa2a365528e4688b11fc9cf24631b9520a4ba016a7baefb75", size = 5027989, upload-time = "2026-11-08T04:12:02.432Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/55/d649675bcfe03537190617706310dfb9865b6ee2c44034ca0e55e2271f1f/pgenlib-0.95.2-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:274133c669c8034c3f8243bb723331ba475d9e3c4d63f1eb3e8ad378f8186f41", size = 5257895, upload-time = "2026-11-08T04:12:04.801Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/19/68b9d5b5efc7303f121b9bc7041d16de4cbba8df1a541095d400c0c2b6c0/pgenlib-0.95.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:020c455a6a3cd5ee4cc8c0fe9633b5d0ff298b070ed62811dff6c2463ed329ae", size = 2441481, upload-time = "2026-11-08T04:12:06.404Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/98/a1b10fa925b09c4414af29bf490e69610891b3a9092a37f6cbf18d1b2450/pgenlib-0.95.2-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e60c8fe6fb0dfcbb0788db2c4e5374a8d187067be7ce7d8b60a57e13e82a1627", size = 5141323, upload-time = "2026-11-08T04:12:08.37Z" },
+    { url = "https://files.pythonhosted.org/packages/58/05/f5222221ab9057fb801aaa81edd226b89a4ecaa21f5ecd776173bc19244e/pgenlib-0.95.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d32744297370600e7130e198a656cdd16d63eb8b07d3220e4b297ca66a10cda1", size = 5356133, upload-time = "2026-11-08T04:12:10.439Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/14/7cc3d66cb918575540f5111d7b2ba4e7dc91fc52a0f5af524734eb4481f2/pgenlib-0.95.2-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:32230e492e69c76375858bfa5c34e2a656465ebf920415ee94689e54fcc0f170", size = 2430840, upload-time = "2026-11-08T04:12:12.541Z" },
+    { url = "https://files.pythonhosted.org/packages/c8/a8/7eac2ad7007946b227a03d418d54673f045c02f110bca6c1bd54987a4e5f/pgenlib-0.95.2-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:0837a7615e24e34cd590379ee439301df5048ceeb948ff3abfea4cc2bd4339ce", size = 5103232, upload-time = "2026-11-08T04:12:14.31Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/b2/c05ee2e07e80816548e993bfa9813208ba528d74f9de2dca9abc1343b74e/pgenlib-0.95.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8ae84fe5e0070ae0d32bd048cf187440e1aeb01380c37b3049bc17d797589423", size = 5344557, upload-time = "2026-11-08T04:12:16.071Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/96/d56f4c7254ee67f953d101f020cab5439e5998efd3b0d03f5ccd421d1973/pgenlib-0.95.2-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:381cc4b2c519144d5b1dd380c721d4b236ddcc8ee75f09baf8a81eba7cd37954", size = 2430353, upload-time = "2026-11-08T04:12:17.704Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/2b/f52cc58a2a31fff03687f660d6bb8ef1139500b9c1ed9db676da37d2c5fc/pgenlib-0.95.2-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:283ca434ea2559988a9b5da1b56b366f282e07973b11b1bb8c56ec46109c7979", size = 5081337, upload-time = "2026-11-08T04:12:19.525Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/27/50321962f64bd46eaf38c358c1384d9d753351e81d0ee2ae402c24450d6c/pgenlib-0.95.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e56ae0b7bb310ef8877ec1736038bd6a069883f1af6edaa75ec5411e545eb31e", size = 5330373, upload-time = "2026-11-08T04:12:21.303Z" },
+    { url = "https://files.pythonhosted.org/packages/61/ec/80c81149f6a1da0403729079a07c50359d5472e2819f2f3f685243479d92/pgenlib-0.95.2-cp314-cp314-macosx_10_15_universal2.whl", hash = "sha256:a0ed9668c9b281ca6d1c5aee9c0328e6664764c41e9afc134c74e3933e0872a5", size = 2431536, upload-time = "2026-11-08T04:12:22.892Z" },
+    { url = "https://files.pythonhosted.org/packages/52/d5/8f44df43eec4b9ac35bb23ef38d3849d703a1f4512a23848987433b1e576/pgenlib-0.95.2-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e38e5a464528ae4484ad97406910f9e3a2bfc78a5466af9d3bec35907cbf80be", size = 5109507, upload-time = "2026-11-08T04:12:25.173Z" },
+    { url = "https://files.pythonhosted.org/packages/08/e1/658e35c93036869ea5542ab498c7e8b7e03b3d3c98c859ee77c61b815783/pgenlib-0.95.2-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:dc03843aee85c729db86a78cea681d9005b06bbdf80f97d57a762099f0e94977", size = 5344465, upload-time = "2026-11-08T04:12:26.941Z" },
 ]
 
 [[package]]
@@ -3427,6 +3465,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/48/bb/3d8757f21e9a53d9035c9eb039a777047139a16bfdbedfc7a58241c3d914/starlette-1.10.0.tar.gz", hash = "sha256:b8399098d4c1e3522734f7235dc79b1fc967f96cf139c81e0fa30479e0685f9b", size = 2734356, upload-time = "2026-10-24T15:04:12.342Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/88/2e/947cfe02def9371c07cd5bf5b6b61c829e9aecb9904db02a66cfafbc1eec/starlette-1.10.0-py3-none-any.whl", hash = "sha256:478c0ab3b4ced6e82719849c118fa406f0278a3499c1a898cd15cd31bdc38ce4", size = 80571, upload-time = "2026-10-24T15:04:10.371Z" },
+]
+
+[[package]]
+name = "threadpoolctl"
+version = "3.8.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/56/97/b4748951a683e369513691c8eea33d100298d556308dcb0ab66b132a67f0/threadpoolctl-3.8.0.tar.gz", hash = "sha256:01080674ad7ac6182429c918a79de92da789bb448acc02fc0b620b1abd6b6137", size = 39424, upload-time = "2026-11-05T11:08:51.112Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/54/1b/831f2de4840a25db1dd7b1afea433ccafe6bb10aca07e13264f2079462d0/threadpoolctl-3.8.0-py3-none-any.whl", hash = "sha256:f1b49c82704d50f13ffae019c727b0fa4f6791a58f48f06a09c45face1be66da", size = 32091, upload-time = "2026-11-05T11:08:49.773Z" },
 ]
 
 [[package]]

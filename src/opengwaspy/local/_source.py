@@ -17,6 +17,14 @@ import pandas as pd
 
 from opengwaspy.client import Limits
 from opengwaspy.errors import OpenGWASError, RequestError
+from opengwaspy.local._ld import (
+    LD_ENDPOINTS,
+    LocalLDError,
+    LocalLDStore,
+    answer_ld,
+    choose,
+    open_ld,
+)
 from opengwaspy.source import LocalUnsupported
 
 if TYPE_CHECKING:
@@ -167,12 +175,20 @@ def _phewas_indexed(path: Path) -> bool:
     return bool(_ogquery("ogquery.by_variant").has_variant_index(path))
 
 
-def local(paths: str | Path | Iterable[str | Path]) -> LocalSource:
-    """Open downloaded Store Releases as a Local Source.
+def local(
+    paths: str | Path | Iterable[str | Path] | None = None,
+    *,
+    ld: str | Path | Iterable[str | Path] | None = None,
+) -> LocalSource:
+    """Open downloaded Store Releases, and LD Stores, as a Local Source.
 
     Args:
         paths: The full path of each Store Release (the directory holding its
             ``manifest.json``), at most one release per GWAS Store.
+        ld: The full path of each LD Store or Genotype Store (the ``.store``
+            directory), for the LD functions. Each is named by its directory,
+            and its ancestry comes from its provenance. With several stores of
+            one ancestry, name the store (``store=``) rather than the ancestry.
 
     Returns:
         A :class:`LocalSource`, to pass as ``client`` to the query functions.
@@ -182,11 +198,19 @@ def local(paths: str | Path | Iterable[str | Path]) -> LocalSource:
         LocalExtraMissing: ogquery is not installed.
         LocalSourceError: A path is not a readable format 0.3 Store Release, or
             two paths are releases of the same Store.
+        LocalLDError: An ``ld`` path is not a readable LD Store, or two have one name.
     """
-    items = [paths] if isinstance(paths, (str, Path)) else list(paths)
-    if not items:
-        raise ValueError("paths is empty: name at least one Store Release")
-    return LocalSource(items)
+    items = _paths(paths)
+    stores = _paths(ld)
+    if not items and not stores:
+        raise ValueError("paths is empty: name at least one Store Release or LD Store")
+    return LocalSource(items, ld=stores)
+
+
+def _paths(value: str | Path | Iterable[str | Path] | None) -> list[str | Path]:
+    if value is None:
+        return []
+    return [value] if isinstance(value, (str, Path)) else list(value)
 
 
 class LocalSource:
@@ -204,8 +228,9 @@ class LocalSource:
     #: Marks a Local Source to functions that need the API.
     is_local = True
 
-    def __init__(self, paths: Sequence[str | Path]) -> None:
+    def __init__(self, paths: Sequence[str | Path], *, ld: Sequence[str | Path] = ()) -> None:
         self.releases: list[LocalRelease] = []
+        self.ld_stores: list[LocalLDStore] = []
         try:
             for path in paths:
                 opened = _open(path)
@@ -217,14 +242,23 @@ class LocalSource:
                         "a Local Source holds one release per Store"
                     )
                 self.releases.append(opened)
+            if ld:
+                _ogquery()  # the extra's message, before any LD Store is read
+            for path in ld:
+                store = open_ld(path)
+                if any(s.name == store.name for s in self.ld_stores):
+                    store.close()
+                    raise LocalLDError(f"two LD Stores are named {store.name}; rename one")
+                self.ld_stores.append(store)
         except BaseException:
             self.close()
             raise
         self.ogquery_version = str(getattr(_ogquery(), "__version__", "unknown"))
 
     def __repr__(self) -> str:
-        names = ", ".join(f"{r.store_id}/{r.release_id}" for r in self.releases)
-        return f"LocalSource({names})"
+        names = [f"{r.store_id}/{r.release_id}" for r in self.releases]
+        names += [f"LD {s.name}" for s in self.ld_stores]
+        return f"LocalSource({', '.join(names)})"
 
     def __enter__(self) -> LocalSource:
         return self
@@ -233,9 +267,11 @@ class LocalSource:
         self.close()
 
     def close(self) -> None:
-        """Close every release, letting go of their files."""
+        """Close every release and LD Store, letting go of their files."""
         for release in self.releases:
             release.close()
+        for store in self.ld_stores:
+            store.close()
 
     # What the query functions need (opengwaspy.source.Source)
 
@@ -285,6 +321,9 @@ class LocalSource:
         elif name in _VARIANTS:
             releases = self._select(body)
             rows = _translated(lambda: self._variants(name, body, releases))
+        elif name in LD_ENDPOINTS:
+            releases = []
+            rows, metadata = answer_ld(choose(self.ld_stores, body), name, body)
         else:
             raise LocalUnsupported(f"{name} is not available on a Local Source")
         frame: pd.DataFrame = pd.DataFrame.from_records(rows) if rows else pd.DataFrame()
@@ -316,6 +355,10 @@ class LocalSource:
         )
         frame.attrs["opengwas_batches"] = []
         return frame
+
+    def ld_listing(self) -> list[dict[str, Any]]:
+        """The open LD Stores, as ``ld_stores()`` lists them."""
+        return [store.listing() for store in self.ld_stores]
 
     def gwasinfo(
         self,

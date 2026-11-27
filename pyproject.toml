@@ -37,6 +37,8 @@ dependencies = [
 mcp = ["mcp>=2.3,<3"]
 # A Local Source: query downloaded Store Releases through ogquery (Python 3.12+).
 local = ["ogquery>=0.5,<0.6; python_version >= '3.12'"]
+# And Genotype Stores (LD computed from pinned pgen files; pgenlib wheels: Linux and macOS).
+local-genotype = ["ogquery[genotype]>=0.5,<0.6; python_version >= '3.12'"]
 
 [project.scripts]
 opengwaspy-mcp = "opengwaspy.mcp.__main__:main"
@@ -51,6 +53,7 @@ dev = [
     "mcp>=2.3,<3",  # the optional extra, so tests and mypy cover opengwaspy.mcp
     "mypy>=1.13",
     "ogquery>=0.5,<0.6; python_version >= '3.12'",  # the local extra, for its tests
+    "ogquery[genotype]>=0.5,<0.6; python_version >= '3.12' and sys_platform != 'win32'",
     "pandas-stubs>=2.0",
     "pytest>=8.0",
     "pytest-cov>=5.0",
@@ -108,7 +111,7 @@ markers = [
 branch = true
 source = ["opengwaspy"]
 # CI sets this on Python 3.10 and 3.11, where ogquery (the local extra) cannot be installed,
-# so the Local Source's reader code cannot run there; it is covered on 3.12 and later.
+# so the Local Source's reader modules cannot run there; they are covered on 3.12 and later.
 omit = ["${OPENGWASPY_COVERAGE_OMIT-}"]
 
 [tool.coverage.report]

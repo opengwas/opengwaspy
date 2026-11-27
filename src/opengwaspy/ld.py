@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterable, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -26,8 +26,11 @@ import pandas as pd
 from opengwaspy._common import as_list, chunks, drop_none, run
 from opengwaspy.client import Client, get_client
 from opengwaspy.errors import ProtocolError
-from opengwaspy.source import require_api
+from opengwaspy.source import Source, require_api
 from opengwaspy.transport import json_body
+
+if TYPE_CHECKING:
+    from opengwaspy.local import LocalSource
 
 __all__ = ["ld_clump", "ld_matrix", "ld_proxies", "ld_reflookup", "ld_region", "ld_stores"]
 
@@ -78,13 +81,18 @@ def _lift_metadata(frame: pd.DataFrame, keys: Sequence[str] = ("absent",)) -> pd
     return frame
 
 
-def ld_stores(*, client: Client | None = None) -> pd.DataFrame:
+def ld_stores(*, client: Client | LocalSource | None = None) -> pd.DataFrame:
     """The LD Stores served: ancestry, panel size, ``t_far``, ``near_bp``, ``far_bp``.
 
     Args:
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source (its open LD Stores, with
+            their ``path``); defaults to :func:`~opengwaspy.get_client`.
     """
-    client = require_api(client or get_client(), "opengwaspy.ld_stores")
+    source = client or get_client()
+    if getattr(source, "is_local", False):
+        listing: pd.DataFrame = pd.DataFrame.from_records(source.ld_listing())  # type: ignore[union-attr]
+        return listing
+    client = require_api(source, "opengwaspy.ld_stores")
     body = json_body(client.transport.get("api/ld/stores"))
     stores = body.get("stores") if isinstance(body, dict) else None
     if not isinstance(stores, list):
@@ -99,7 +107,7 @@ def ld_matrix(
     ancestry: str | None = None,
     store: str | None = None,
     fill: float | None = None,
-    client: Client | None = None,
+    client: Source | None = None,
 ) -> pd.DataFrame:
     """The LD (signed r) between every pair of some variants.
 
@@ -109,14 +117,15 @@ def ld_matrix(
         ancestry: The LD store's ancestry, such as ``EUR``.
         store: The LD store's name, instead of ``ancestry``.
         fill: A number to give pairs the store does not hold, instead of NaN.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source with LD Stores
+            (:func:`~opengwaspy.local`); defaults to :func:`~opengwaspy.get_client`.
 
     Returns:
         A square DataFrame of r, indexed and labelled by ALID, for the variants
         the store holds. ``attrs["absent"]`` lists ALIDs it does not hold, and
         ``attrs["variants"]`` the alleles (``a1``, ``a2``) the signs refer to.
     """
-    client = require_api(client or get_client(), "opengwaspy.ld_matrix")
+    client = client or get_client()
     values = _alids(alids, distinct=True)
     cap = client.limits.ld_matrix_alids
     if len(values) > cap:
@@ -133,7 +142,7 @@ def ld_region(
     ancestry: str | None = None,
     store: str | None = None,
     fill: float | None = None,
-    client: Client | None = None,
+    client: Source | None = None,
 ) -> pd.DataFrame:
     """The LD matrix of every variant the store holds within ``radius`` of ``centre``.
 
@@ -145,12 +154,13 @@ def ld_region(
         ancestry: The LD store's ancestry.
         store: The LD store's name, instead of ``ancestry``.
         fill: A number to give pairs the store does not hold, instead of NaN.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source with LD Stores
+            (:func:`~opengwaspy.local`); defaults to :func:`~opengwaspy.get_client`.
 
     Returns:
         A square DataFrame of r, as :func:`ld_matrix` returns.
     """
-    client = require_api(client or get_client(), "opengwaspy.ld_region")
+    client = client or get_client()
     if centre < 1 or radius < 0:
         raise ValueError("centre must be positive and radius not negative")
     body = drop_none(
@@ -173,7 +183,7 @@ def ld_clump(
     kb: float,
     ancestry: str | None = None,
     store: str | None = None,
-    client: Client | None = None,
+    client: Source | None = None,
 ) -> pd.DataFrame:
     """Clump variants: keep the strongest of each group of variants in LD.
 
@@ -194,7 +204,8 @@ def ld_clump(
         kb: The window, in kilobases.
         ancestry: The LD store's ancestry.
         store: The LD store's name, instead of ``ancestry``.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source with LD Stores
+            (:func:`~opengwaspy.local`); defaults to :func:`~opengwaspy.get_client`.
 
     Returns:
         One row per variant the store holds, in the order given: ``alid``,
@@ -203,7 +214,7 @@ def ld_clump(
         are the leads. ``attrs["absent"]`` lists ALIDs the store does not hold:
         they belong to no clump.
     """
-    client = require_api(client or get_client(), "opengwaspy.ld_clump")
+    client = client or get_client()
     values = _alids(alids, distinct=True)
     score_list = [float(s) for s in scores]
     if len(score_list) != len(values):
@@ -224,7 +235,7 @@ def ld_proxies(
     kb: float = 10_000,
     ancestry: str | None = None,
     store: str | None = None,
-    client: Client | None = None,
+    client: Source | None = None,
 ) -> pd.DataFrame:
     """Proxies of variants: other variants in LD with them.
 
@@ -234,13 +245,14 @@ def ld_proxies(
         kb: The window, in kilobases.
         ancestry: The LD store's ancestry.
         store: The LD store's name, instead of ``ancestry``.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source with LD Stores
+            (:func:`~opengwaspy.local`); defaults to :func:`~opengwaspy.get_client`.
 
     Returns:
         One row per proxy: ``query``, ``proxy``, ``r``, ``r2`` and ``distance``.
         ``attrs["absent"]`` lists ALIDs the store does not hold.
     """
-    client = require_api(client or get_client(), "opengwaspy.ld_proxies")
+    client = client or get_client()
     values = _alids(alids, distinct=True)
     selection = _store(ancestry, store)
     bodies = [
@@ -255,7 +267,7 @@ def ld_reflookup(
     *,
     ancestry: str | None = None,
     store: str | None = None,
-    client: Client | None = None,
+    client: Source | None = None,
 ) -> pd.DataFrame:
     """Whether the LD store holds each variant.
 
@@ -263,12 +275,13 @@ def ld_reflookup(
         alids: ALIDs, split into jobs of up to 10,000.
         ancestry: The LD store's ancestry.
         store: The LD store's name, instead of ``ancestry``.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source with LD Stores
+            (:func:`~opengwaspy.local`); defaults to :func:`~opengwaspy.get_client`.
 
     Returns:
         One row per ALID, in order: ``alid`` and ``present``.
     """
-    client = require_api(client or get_client(), "opengwaspy.ld_reflookup")
+    client = client or get_client()
     values = _alids(alids, distinct=True)
     selection = _store(ancestry, store)
     bodies = [
