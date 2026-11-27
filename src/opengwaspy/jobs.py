@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import time
 from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 import pandas as pd
 
@@ -31,7 +33,7 @@ from opengwaspy.errors import (
 )
 from opengwaspy.transport import Transport, json_body
 
-__all__ = ["TERMINAL", "Job", "JobStatus", "JobTimeout", "ResultPage"]
+__all__ = ["TERMINAL", "Job", "JobObserver", "JobStatus", "JobTimeout", "ResultPage", "observe"]
 
 #: Job states that will not change again.
 TERMINAL = frozenset({"succeeded", "failed", "cancelled", "expired"})
@@ -158,6 +160,47 @@ def _declared_counts(manifest: Mapping[str, Any] | None) -> tuple[int | None, in
     return number("page_count"), number("total_rows", "row_count")
 
 
+class JobObserver(Protocol):
+    """Told about every job this thread submits, polls and reads (see :func:`observe`).
+
+    A method may raise to stop the work: the exception reaches the caller of
+    the query function, as an error from the API would.
+    """
+
+    def submitted(self, job: Job) -> None:
+        """A job was submitted (or an existing one returned)."""
+
+    def polled(self, job: Job, status: JobStatus) -> None:
+        """A job's status was fetched."""
+
+    def page(self, job: Job, page: ResultPage) -> None:
+        """A page of a job's result was read and checked."""
+
+
+_local = threading.local()
+
+
+@contextmanager
+def observe(observer: JobObserver) -> Iterator[JobObserver]:
+    """Tell ``observer`` about the jobs that queries in this thread run, while in the block.
+
+    For tools that run opengwaspy's query functions and need to see their jobs:
+    to report progress, keep job IDs, or stop waiting. Blocks nest; the
+    innermost observer is told.
+    """
+    previous = getattr(_local, "observer", None)
+    _local.observer = observer
+    try:
+        yield observer
+    finally:
+        _local.observer = previous
+
+
+def _observer() -> JobObserver | None:
+    observer: JobObserver | None = getattr(_local, "observer", None)
+    return observer
+
+
 class Job:
     """A query running as a job on the API.
 
@@ -217,7 +260,7 @@ class Job:
         ignored = accepted.get("ignored_fields") or []
         if ignored:
             raise IgnoredFieldsError(list(ignored), "/" + endpoint)
-        return cls(
+        job = cls(
             transport,
             str(accepted["job_id"]),
             endpoint="/" + endpoint,
@@ -225,6 +268,10 @@ class Job:
             accepted=accepted,
             status_url=accepted.get("status_url"),
         )
+        observer = _observer()
+        if observer is not None:
+            observer.submitted(job)
+        return job
 
     @classmethod
     def from_id(cls, transport: Transport, job_id: str) -> Job:
@@ -254,6 +301,9 @@ class Job:
         self._last = status
         if self.endpoint is None and status.raw.get("endpoint"):
             self.endpoint = str(status.raw["endpoint"])
+        observer = _observer()
+        if observer is not None:
+            observer.polled(self, status)
         return status
 
     def wait(
@@ -380,6 +430,9 @@ class Job:
                         f"job {self.job_id}: the result holds {rows} rows, but its manifest "
                         f"declares {total_rows}"
                     )
+            observer = _observer()
+            if observer is not None:
+                observer.page(self, page)
             yield page
             if page.final:
                 return

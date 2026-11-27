@@ -12,8 +12,22 @@ from pydantic import Field
 
 from opengwaspy.client import Client
 from opengwaspy.ld import ld_matrix, ld_proxies
-from opengwaspy.mcp.formatting import ColumnChoice, MaxRows, TableResult, table_result
-from opengwaspy.mcp.server import READ_ONLY, Session, call, session_of
+from opengwaspy.mcp.formatting import (
+    ColumnChoice,
+    MaxRows,
+    Overwrite,
+    SaveAs,
+    TableResult,
+    table_result,
+)
+from opengwaspy.mcp.server import (
+    READ_ONLY,
+    Session,
+    arguments,
+    deliver,
+    session_of,
+    watched,
+)
 from opengwaspy.variants import variants_rsid
 
 __all__ = ["MATRIX_MAX", "PROXIES_MAX", "register", "to_alids"]
@@ -116,7 +130,10 @@ def register(server: MCPServer[Session]) -> None:
         ] = 3000,
         max_rows: MaxRows = 50,
         columns: ColumnChoice = "default",
+        save_as: SaveAs = None,
+        overwrite: Overwrite = False,
     ) -> TableResult:
+        args = arguments(locals())
         session = session_of(ctx)
         client = session.require_client()
 
@@ -129,7 +146,10 @@ def register(server: MCPServer[Session]) -> None:
                 frame.insert(1, "query_rsid", [rsid_of.get(q) for q in frame["query"]])
             return frame, rsid_of, notes
 
-        frame, rsid_of, notes = await call(session, fetch)
+        done = await watched(session, ctx, fetch, (ld_proxies_tool, args))
+        if isinstance(done, TableResult):
+            return session.finish(done)
+        frame, rsid_of, notes = done
         default = ["query", *(["query_rsid"] if rsid_of else []), "proxy", "r", "r2", "distance"]
         if "r2" in frame.columns:
             frame = frame.sort_values(["query", "r2"], ascending=[True, False], kind="stable")
@@ -146,7 +166,7 @@ def register(server: MCPServer[Session]) -> None:
             notes=[*notes, *_absent_note(frame)],
             provenance={**_ld_provenance(frame), "rsids": rsid_of},
         )
-        return session.finish(result)
+        return await deliver(session, result, frame, tool="ld_proxies", args=args)
 
     @server.tool(
         name="ld_matrix",
@@ -165,7 +185,10 @@ def register(server: MCPServer[Session]) -> None:
             Field(min_length=1, max_length=MATRIX_MAX, description=VARIANTS_HELP),
         ],
         ancestry: Annotated[str, Field(min_length=1, description=STORE_HELP)] = "EUR",
+        save_as: SaveAs = None,
+        overwrite: Overwrite = False,
     ) -> TableResult:
+        args = arguments(locals())
         session = session_of(ctx)
         client = session.require_client()
 
@@ -179,7 +202,10 @@ def register(server: MCPServer[Session]) -> None:
                 )
             return ld_matrix(alids, ancestry=ancestry.upper(), client=client), rsid_of, notes
 
-        square, rsid_of, notes = await call(session, fetch)
+        done = await watched(session, ctx, fetch, (ld_matrix_tool, args))
+        if isinstance(done, TableResult):
+            return session.finish(done)
+        square, rsid_of, notes = done
         rows = _labelled(square, rsid_of)
         result = table_result(
             rows,
@@ -189,7 +215,7 @@ def register(server: MCPServer[Session]) -> None:
             notes=[*notes, *_absent_note(square)],
             provenance={**_ld_provenance(square), "rsids": rsid_of},
         )
-        return session.finish(result)
+        return await deliver(session, result, rows, tool="ld_matrix", args=args)
 
 
 def _labelled(square: pd.DataFrame, rsid_of: dict[str, str]) -> pd.DataFrame:

@@ -9,20 +9,22 @@ returns, as a last line of defence.
 
 from __future__ import annotations
 
+import inspect
 import logging
 import threading
 import time
 import warnings
-from collections.abc import AsyncIterator, Callable, Iterable
+from collections.abc import AsyncIterator, Callable, Iterable, Mapping
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from typing import Any, TypeVar
+from dataclasses import dataclass, field
+from typing import Annotated, Any, TypeVar
 
 import anyio.to_thread
+import pandas as pd
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import opengwaspy.client as client_module
 from opengwaspy import __version__
@@ -32,6 +34,22 @@ from opengwaspy.config import PROFILES, Config, ConfigError
 from opengwaspy.errors import AuthError, OpenGWASError, RateLimitError
 from opengwaspy.ld import ld_stores
 from opengwaspy.mcp.credentials import ReloadingAuth
+from opengwaspy.mcp.files import save_frame
+from opengwaspy.mcp.formatting import (
+    ColumnChoice,
+    MaxRows,
+    Overwrite,
+    SaveAs,
+    TableResult,
+    table_result,
+)
+from opengwaspy.mcp.waiting import (
+    DEFAULT_WAIT_SECONDS,
+    Watch,
+    progress_reporter,
+    run_watched,
+    wait_seconds,
+)
 
 __all__ = ["READ_ONLY", "Session", "create_server", "scrub"]
 
@@ -92,6 +110,9 @@ class Session:
 
     client: Client | None
     config_error: str | None = None
+    wait_seconds: float = DEFAULT_WAIT_SECONDS
+    #: For each job ID of a call that outlasted the wait: the tool and its arguments.
+    pending: dict[str, tuple[Any, dict[str, Any]]] = field(default_factory=dict)
 
     def _provider(self) -> AuthProvider | None:
         auth = self.client.config.auth if self.client else None
@@ -211,8 +232,8 @@ def tool_error(exc: Exception, session: Session) -> ToolError:
 _WARNINGS = threading.Lock()
 
 
-async def call_noting(session: Session, fn: Callable[[], T]) -> tuple[T, list[str]]:
-    """Like :func:`call`, also returning the warnings ``fn`` raised, as notes.
+def capture_warnings(fn: Callable[[], T]) -> Callable[[], tuple[T, list[str]]]:
+    """``fn``, also returning the warnings it raised, as notes.
 
     Python's warning filters are process-wide, so such calls run one at a time.
     """
@@ -223,7 +244,7 @@ async def call_noting(session: Session, fn: Callable[[], T]) -> tuple[T, list[st
             value = fn()
         return value, list(dict.fromkeys(str(w.message) for w in caught))
 
-    return await call(session, run)
+    return run
 
 
 async def call(session: Session, fn: Callable[[], T]) -> T:
@@ -232,6 +253,99 @@ async def call(session: Session, fn: Callable[[], T]) -> T:
         return await anyio.to_thread.run_sync(fn)
     except (OpenGWASError, ValueError) as exc:  # ValueError: arguments opengwaspy refused
         raise tool_error(exc, session) from exc
+
+
+async def watched(
+    session: Session,
+    ctx: Context[Session],
+    fn: Callable[[], T],
+    rerun: tuple[Any, dict[str, Any]],
+) -> T | TableResult:
+    """Run a job-backed opengwaspy call, with progress and the wait limit.
+
+    Returns:
+        ``fn``'s value; or, if its jobs outlasted the wait, a ``running`` result
+        with their IDs. ``rerun`` (the tool and its arguments) is kept under each
+        ID, for ``get_job_result``.
+
+    Raises:
+        ToolError: The call failed.
+    """
+    client = session.require_client()
+    clock = client.transport.clock
+    watch = Watch(clock, clock() + session.wait_seconds, progress_reporter(ctx))
+    try:
+        return await run_watched(watch, fn)
+    except (OpenGWASError, ValueError) as exc:
+        if not watch.stopped_by_limit(exc):
+            raise tool_error(exc, session) from exc
+    ids = watch.job_ids
+    for job_id in ids:
+        session.pending[job_id] = rerun
+    return TableResult(
+        summary=(
+            f"Still running after {session.wait_seconds:g} s ({len(ids)} jobs). The jobs keep "
+            f"running: call get_job_result with job_id {ids[0]!r} to pick up the result."
+        ),
+        total_rows=None,
+        rows_returned=0,
+        truncated=False,
+        columns=[],
+        rows=[],
+        status="running",
+        job_ids=ids,
+        poll_after_seconds=watch.poll_after,
+    )
+
+
+def arguments(local: Mapping[str, Any]) -> dict[str, Any]:
+    """The calling tool's arguments, but ``ctx``, from its ``locals()``.
+
+    Only its parameters: ``locals()`` in a nested function also holds the free
+    variables it uses.
+    """
+    caller = inspect.currentframe()
+    code = caller.f_back.f_code if caller is not None and caller.f_back is not None else None
+    if code is None:  # pragma: no cover - CPython always has frames
+        return {k: v for k, v in local.items() if k != "ctx"}
+    names = code.co_varnames[: code.co_argcount + code.co_kwonlyargcount]
+    return {name: local[name] for name in names if name != "ctx" and name in local}
+
+
+async def deliver(
+    session: Session,
+    result: TableResult,
+    frame: pd.DataFrame,
+    *,
+    tool: str,
+    args: Mapping[str, Any],
+) -> TableResult:
+    """Finish a tool's result: save the full ``frame`` if asked, add the allowance, scrub."""
+    save_as = args.get("save_as")
+    if save_as:
+        provenance = {
+            "tool": tool,
+            "arguments": {k: v for k, v in args.items() if k not in ("save_as", "overwrite")},
+            "summary": result.summary,
+            "notes": result.notes,
+            "provenance": result.provenance,
+            "opengwaspy": __version__,
+            "saved_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        try:
+            saved = await anyio.to_thread.run_sync(
+                lambda: save_frame(
+                    frame,
+                    str(save_as),
+                    session.scrub(provenance),
+                    overwrite=bool(args.get("overwrite")),
+                )
+            )
+        except (ValueError, OSError) as exc:
+            raise ToolError(f"Could not save the result: {exc}") from exc
+        result.saved = saved
+        result.summary += f" Saved all {saved.rows:,} rows to {saved.path}."
+    return session.finish(result)
 
 
 def profile_name(base_url: str) -> str:
@@ -277,7 +391,7 @@ def create_server(
             # Start anyway, so the assistant can tell the user what to fix.
             log.warning("opengwaspy configuration is invalid: %s", exc)
             client, error = None, str(exc)
-        session = Session(client, error)
+        session = Session(client, error, wait_seconds=wait_seconds())
         if session.auth_kind == "none":
             log.warning("no OpenGWAS credential is configured; tools will say how to set one")
         # The ieugwaspy-compatible layer (used for LD proxies) calls the default
@@ -303,6 +417,7 @@ def create_server(
         lifespan=lifespan,
     )
     register_status(server)
+    register_jobs(server)
     from opengwaspy.mcp import data, ld, metadata
 
     metadata.register(server)
@@ -393,3 +508,60 @@ def _batches(client: Client) -> dict[str, Any]:
             for b in frame.attrs.get("opengwas_batches") or []
         ],
     }
+
+
+def register_jobs(server: MCPServer[Session]) -> None:
+    """Add ``get_job_result``."""
+
+    @server.tool(
+        name="get_job_result",
+        title="Pick up a long-running result",
+        description=(
+            'Pick up the result of a tool call that answered status "running": pass any of its '
+            "job_ids. Waits again (up to the same limit), then answers as the original tool "
+            "would, or running again. max_rows, columns and save_as replace the original "
+            "call's, if given."
+        ),
+        annotations=READ_ONLY,
+    )
+    async def get_job_result(
+        ctx: Context[Session],
+        job_id: Annotated[str, Field(min_length=1, max_length=200, description="A job ID.")],
+        max_rows: MaxRows | None = None,
+        columns: ColumnChoice | None = None,
+        save_as: SaveAs = None,
+        overwrite: Overwrite = False,
+    ) -> TableResult:
+        session = session_of(ctx)
+        client = session.require_client()
+        changes = {
+            "max_rows": max_rows,
+            "columns": columns,
+            "save_as": save_as,
+            "overwrite": overwrite or None,
+        }
+        if job_id in session.pending:
+            tool, args = session.pending[job_id]
+            args = {**args, **{k: v for k, v in changes.items() if v is not None and k in args}}
+            result: TableResult = await tool(ctx, **args)
+            return result
+
+        # A job this server did not start (or started before a restart): its raw rows.
+        args = {"job_id": job_id, **changes}
+        done = await watched(
+            session,
+            ctx,
+            lambda: client.job(job_id).to_frame(),
+            (get_job_result, {k: v for k, v in args.items() if v is not None}),
+        )
+        if isinstance(done, TableResult):
+            return session.finish(done)
+        frame = done
+        out = table_result(
+            frame,
+            summary=f"{len(frame)} rows from job {job_id}.",
+            max_rows=max_rows or 50,
+            columns=columns or "all",
+            provenance={"job_id": job_id, "endpoint": frame.attrs.get("endpoint")},
+        )
+        return await deliver(session, out, frame, tool="get_job_result", args=args)

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- MCP server: long jobs report progress, and a call still running after 60 s (`OPENGWAS_MCP_WAIT_SECONDS`) answers `status: running` with its job IDs, for `get_job_result`; cancelling a call cancels its jobs. Every data tool takes `save_as`, saving the full result as CSV with a provenance `.json` in `OPENGWAS_MCP_OUTPUT_DIR` (default `./opengwas-results`); with it, `region_associations` takes up to 10 Mb and `phewas` up to 10,000 rows per job.
+- `opengwaspy.jobs.observe`: tell an observer about the jobs that queries in this thread submit, poll and read.
 - Job results are checked against their manifest: pages in sequence, row offsets, and the declared page and row counts. A missing, repeated or extra page, or a result that ends early, raises `ProtocolError` (#83).
 - `Job.wait(timeout=...)` treats the timeout as a deadline: poll sleeps are cut short to meet it, and status calls count against it (#80).
 - An MCP server for AI assistants (preview): the `mcp` extra and the `opengwaspy-mcp` command, over stdio, with tools `api_status`, `search_analyses`, `get_analyses`, `top_hits` (optionally clumped), `associations` (optionally with LD proxies), `region_associations`, `phewas`, `variant_info`, `ld_proxies` and `ld_matrix`. OpenGWAS IDs are translated. With an OpenGWAS token through the Gateway, each result shows the allowance left; a renewed token saved to the config file is used without a restart; an exhausted allowance fails at once with its reset time. Results are trimmed for the model (a summary, main columns, up to 100 rows) with provenance. It uses the usual configuration, and never takes or returns a credential.
