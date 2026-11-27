@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 from mcp.server.mcpserver import Context, MCPServer
 from pydantic import Field
 
-from opengwaspy.compat._ids import resolve
+from opengwaspy.compat._ids import Resolved, resolve
 from opengwaspy.mcp.formatting import (
     METADATA_COLUMNS,
     ColumnChoice,
@@ -18,7 +18,23 @@ from opengwaspy.mcp.formatting import (
 from opengwaspy.mcp.server import READ_ONLY, Session, call, session_of
 from opengwaspy.metadata import gwasinfo_search
 
-__all__ = ["register"]
+__all__ = ["register", "resolution_notes"]
+
+
+def resolution_notes(resolved: Resolved) -> tuple[list[str], int]:
+    """Notes on translated and unfound IDs, and how many IDs were not found."""
+    notes: list[str] = []
+    unresolved = 0
+    for entry in resolved.opengwas:
+        if "reason" in entry:
+            unresolved += 1
+            notes.append(f"{entry['id']}: not found ({entry['reason']}).")
+        elif entry.get("match") == "successor":
+            notes.append(
+                f"{entry['id']} was translated to {', '.join(entry['analyses'])}, a later "
+                "release than OpenGWAS held, so the numbers may differ."
+            )
+    return notes, unresolved
 
 
 def register(server: MCPServer[Session]) -> None:
@@ -108,17 +124,7 @@ def register(server: MCPServer[Session]) -> None:
         client = session.require_client()
         resolved = await call(session, lambda: resolve(ids, warn=False, client=client))
         frame = resolved.label(resolved.info)
-        notes: list[str] = []
-        unresolved = 0
-        for entry in resolved.opengwas:
-            if "reason" in entry:
-                unresolved += 1
-                notes.append(f"{entry['id']}: not found ({entry['reason']}).")
-            elif entry.get("match") == "successor":
-                notes.append(
-                    f"{entry['id']} was translated to {', '.join(entry['analyses'])}, a later "
-                    "release than OpenGWAS held, so the numbers may differ."
-                )
+        notes, unresolved = resolution_notes(resolved)
         translated = any(e.get("analyses") for e in resolved.opengwas)
         default = [*METADATA_COLUMNS, "opengwas_id"] if translated else METADATA_COLUMNS
         found = len(ids) - unresolved

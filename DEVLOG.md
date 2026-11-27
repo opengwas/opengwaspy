@@ -9,6 +9,19 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #91: MCP data tools
+
+- **`top_hits`:** up to 10 analyses, `threshold` (5e-8), optional server clumping (`clump`, with `r2`, `kb`, `ancestry` only when clumping; refused otherwise). Fetches up to 1,000 hits per analysis and shares `max_rows` fairly between analyses. Notes for truncation and for hits absent from the LD panel; `attrs["clump"]` in provenance.
+- **`associations`:** up to 100 variants by 20 analyses. Without proxies, native `associations`; with `proxies=true`, `compat.associations` (best proxy, alleles aligned), whose warnings (such as an ancestry with no LD store) become notes.
+  - To let compat use the session's client, the server's lifespan makes the session client opengwaspy's default client while it runs, and restores the previous default on exit.
+  - `call_noting()` collects warnings under a lock, because Python's warning filters are process-wide; only the proxy path uses it.
+- **`region_associations`:** up to 1 Mb and 5 analyses (wider regions are refused, pointing to narrower ones; `save_as` comes with #93); the strongest association is noted.
+- **`phewas`:** one variant, `threshold` (1e-8), up to 1,000 rows per job, sorted strongest first (the API returns genome order); truncation becomes a note with the API's `total`.
+- **`variant_info`:** up to 100 rsIDs or `chr:pos`, one row per ALID with the number of Stores holding it; queries not found are notes.
+- Association rows get ieugwaspy's column names (`id`, `trait`, `ea`, `nea`, `beta`, `n` from the analyses' metadata), and `opengwas_id` where OpenGWAS IDs were translated. Analysis IDs go through compat's `resolve`; if none is found, the tool fails with the reasons.
+- **Tests:** `tests/test_mcp_data.py` (21). ruff, mypy strict (66 files) and `pytest` (311 passed, 99% coverage) pass.
+- **Live: not yet verified.** 6433 still answers `503 release_unavailable` for data queries (OGS-00006 at format 0.3.0); recheck with #90.
+
 ## 2026-11-27 - #92: MCP LD tools
 
 - **`ld_proxies`:** up to 100 variants, `ancestry` (default EUR), `r2` (default 0.8), `kb` (default 3,000, at most 10,000), `max_rows`. Rows are sorted strongest r2 first within each query variant.
