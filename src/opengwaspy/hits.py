@@ -17,7 +17,8 @@ from typing import Any
 import pandas as pd
 
 from opengwaspy._common import ReleaseLike, add_p, as_list, chunks, drop_none, resolve_releases, run
-from opengwaspy.client import Client, get_client
+from opengwaspy.client import get_client
+from opengwaspy.source import Source
 
 __all__ = ["phewas", "tophits"]
 
@@ -55,7 +56,7 @@ def tophits(
     clump: bool | Mapping[str, Any] = False,
     observed_only: bool = False,
     releases: Iterable[ReleaseLike] | None = None,
-    client: Client | None = None,
+    client: Source | None = None,
 ) -> pd.DataFrame:
     """Each analysis's associations at or below a p-value threshold, strongest first.
 
@@ -92,7 +93,8 @@ def tophits(
             analysis) or ``store`` (an LD Store's name).
         observed_only: Leave out imputed associations.
         releases: Only these Stores' releases.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source (:func:`~opengwaspy.local`);
+            defaults to :func:`~opengwaspy.get_client`.
 
     Returns:
         The hits (or leads), by analysis, strongest first, with ``p`` derived
@@ -220,7 +222,7 @@ def phewas(
     analyses: str | Iterable[str] | None = None,
     limit: int = 1000,
     observed_only: bool = True,
-    client: Client | None = None,
+    client: Source | None = None,
 ) -> pd.DataFrame:
     """The associations of one variant across analyses (a PheWAS), at p ≤ ``threshold``.
 
@@ -236,7 +238,8 @@ def phewas(
         analyses: Only these analyses.
         limit: Most rows per job (each job covers up to 10 releases; at most 10,000).
         observed_only: Leave out imputed associations.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source (:func:`~opengwaspy.local`);
+            defaults to :func:`~opengwaspy.get_client`.
 
     Returns:
         The associations, with ``p``. ``attrs`` has ``threshold``, ``total``
@@ -279,7 +282,7 @@ def phewas(
     return frame
 
 
-def _phewas_releases(client: Client) -> list[dict[str, str]]:
+def _phewas_releases(client: Source) -> list[dict[str, str]]:
     batches = client.batches()
     refs = []
     for row in batches.to_dict("records"):

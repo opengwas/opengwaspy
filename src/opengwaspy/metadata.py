@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Iterable, Mapping
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
 
@@ -16,6 +16,9 @@ from opengwaspy.client import Client, get_client
 from opengwaspy.errors import ProtocolError, RequestError
 from opengwaspy.source import require_api
 from opengwaspy.transport import json_body
+
+if TYPE_CHECKING:
+    from opengwaspy.local import LocalSource
 
 __all__ = ["gwasinfo", "gwasinfo_files", "gwasinfo_search"]
 
@@ -69,7 +72,7 @@ def gwasinfo(
     release_set: str | None = None,
     limit: int | None = None,
     strict: bool = False,
-    client: Client | None = None,
+    client: Client | LocalSource | None = None,
 ) -> pd.DataFrame:
     """Metadata of analyses: trait, ancestry, sample size, effect scale, and more.
 
@@ -88,7 +91,11 @@ def gwasinfo(
         limit: When listing, stop after this many analyses.
         strict: With ``ids``, raise if any ID is not served (or is retired)
             instead of noting it in ``attrs``.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source (:func:`~opengwaspy.local`);
+            defaults to :func:`~opengwaspy.get_client`. A Local Source gives
+            each release's own ``analyses.tsv`` fields, which lack the fields
+            the Analysis Catalog adds (such as ``trait_class``), and does not
+            translate OpenGWAS IDs.
 
     Returns:
         One row per analysis. ``attrs`` holds ``release_id``,
@@ -101,7 +108,10 @@ def gwasinfo(
     Raises:
         RequestError: With ``strict``, some IDs were not found or are retired.
     """
-    client = require_api(client or get_client(), "opengwaspy.gwasinfo")
+    source = client or get_client()
+    if getattr(source, "is_local", False):
+        return _local_gwasinfo(source, ids, releases, release_set, limit, strict)  # type: ignore[arg-type]
+    client = require_api(source, "opengwaspy.gwasinfo")
     if ids is None:
         if releases is not None:
             raise ValueError(
@@ -141,6 +151,48 @@ def gwasinfo(
         retired=retired,
         opengwas=opengwas,
     )
+    return frame
+
+
+def _local_gwasinfo(
+    source: LocalSource,
+    ids: str | Iterable[str] | None,
+    releases: Iterable[ReleaseLike] | None,
+    release_set: str | None,
+    limit: int | None,
+    strict: bool,
+) -> pd.DataFrame:
+    """``gwasinfo`` on a Local Source: each release's ``analyses.tsv`` rows."""
+    if release_set is not None:
+        raise ValueError("release_set names the API's release sets; a Local Source takes releases")
+    if limit is not None and limit < 1:
+        raise ValueError("limit must be at least 1")
+    refs = resolve_releases(source, releases)
+    wanted = None if ids is None else _as_list(ids)
+    rows, not_found = source.gwasinfo(wanted, releases=refs)
+    if strict and not_found:
+        raise RequestError(
+            404,
+            "analysis_not_found",
+            f"{len(not_found)} analyses not found: {', '.join(not_found[:10])}",
+            extra={"not_found": not_found, "retired": []},
+        )
+    if wanted is None and limit is not None:
+        rows = rows[:limit]
+    frame = _frame(rows)
+    frame.attrs.update(
+        source="local",
+        release_id=None,
+        catalog_version=None,
+        releases=[
+            {"store_id": store, "release_id": release}
+            for store, release in dict.fromkeys((r["store_id"], r["release_id"]) for r in rows)
+        ],
+    )
+    if wanted is None:
+        frame.attrs["total"] = len(rows)
+    else:
+        frame.attrs.update(not_found=not_found, retired=[], opengwas=[])
     return frame
 
 

@@ -15,7 +15,8 @@ from collections.abc import Iterable
 import pandas as pd
 
 from opengwaspy._common import ReleaseLike, as_list, chunks, resolve_releases, run
-from opengwaspy.client import Client, get_client
+from opengwaspy.client import get_client
+from opengwaspy.source import Source
 
 __all__ = ["variants_chrpos", "variants_rsid"]
 
@@ -24,7 +25,7 @@ RELEASES_PER_JOB = 10
 _POSITION = re.compile(r"^(?:chr)?([0-9A-Za-z_.]+):([0-9]+)$", re.IGNORECASE)
 
 
-def _all_releases(client: Client) -> list[dict[str, str]]:
+def _all_releases(client: Source) -> list[dict[str, str]]:
     return [
         {"store_id": store, "release_id": release}
         for store, releases in client.served_releases().items()
@@ -33,7 +34,7 @@ def _all_releases(client: Client) -> list[dict[str, str]]:
 
 
 def _lookup(
-    client: Client,
+    client: Source,
     endpoint: str,
     field: str,
     values: list[str],
@@ -52,14 +53,15 @@ def variants_rsid(
     rsids: str | Iterable[str],
     *,
     releases: Iterable[ReleaseLike] | None = None,
-    client: Client | None = None,
+    client: Source | None = None,
 ) -> pd.DataFrame:
     """Look variants up by rsID.
 
     Args:
         rsids: rsIDs, such as ``rs429358``.
         releases: The Stores to search; by default every served release.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source (:func:`~opengwaspy.local`);
+            defaults to :func:`~opengwaspy.get_client`.
 
     Returns:
         One row per variant per Store. An rsID no Store holds gives no row. For
@@ -77,7 +79,7 @@ def variants_chrpos(
     positions: str | Iterable[str],
     *,
     releases: Iterable[ReleaseLike] | None = None,
-    client: Client | None = None,
+    client: Source | None = None,
 ) -> pd.DataFrame:
     """Look variants up by exact position.
 
@@ -85,7 +87,8 @@ def variants_chrpos(
         positions: ``chromosome:position`` values, such as ``19:44908684``; a
             ``chr`` prefix is allowed. Exact positions only: there is no radius.
         releases: The Stores to search; by default every served release.
-        client: The client to use; defaults to :func:`~opengwaspy.get_client`.
+        client: The client to use, or a Local Source (:func:`~opengwaspy.local`);
+            defaults to :func:`~opengwaspy.get_client`.
 
     Returns:
         One row per variant per Store at those positions.

@@ -42,9 +42,13 @@ Switching between the API and your downloads is that one argument.
 | Function | Local Source |
 |---|---|
 | `associations`, `associations_range`, `associations_analysis` | yes |
-| `tophits`, `phewas`, `variants_rsid`, `variants_chrpos`, metadata | coming next (#114) |
-| stored Clumps, `rho`, HapMap3 | coming (#115) |
+| `tophits` (unclumped), `phewas` | yes, from each release's Top-Hit Index and by-variant index, as the API answers them |
+| `variants_rsid`, `variants_chrpos` | yes |
+| `gwasinfo`, `batches` | yes, from each release's own `analyses.tsv` and manifest (below) |
+| clumped `tophits`, `rho`, HapMap3 | coming (#115) |
 | LD from downloaded LD Stores | coming (#116) |
-| `gwasinfo_search`, `status`, `user`, the API's LD Stores | no: they need the Data API |
+| `gwasinfo_search`, `gwasinfo_files`, `status`, `user`, the API's LD Stores | no: they need the Data API |
+
+**Metadata.** `gwasinfo` on a Local Source gives each release's `analyses.tsv` fields (trait, ancestry, sample size, effect scale, licence, publication and more), with numbers as numbers and empty fields missing, plus `id`, `store_id` and `release_id`. Fields the API's Analysis Catalog adds, such as `trait_class` and `outcome_type`, are not in a release, so they are absent. `batches` lists the open releases with their `capabilities`, and adds `format_version`, `layout`, `completion_state` and `path`.
 
 A function it can't answer raises `LocalUnsupported`, naming the function. It never asks the Data API instead.
