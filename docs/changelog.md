@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- An MCP server for AI assistants (preview): the `mcp` extra and the `opengwaspy-mcp` command, over stdio, with an `api_status` tool so far. It uses the usual configuration, and never takes or returns a credential.
 - `compat` takes OpenGWAS IDs (`ukb-b`, `ebi-a`, `eqtl-a`, and `finn-b` as successors, with a warning), translated by the Data API. Results add `opengwas_id`, and `attrs["opengwas_ids"]` records each translation. `compat.phewas(batch=...)` takes OpenGWAS batches too.
 - `gwasinfo()` records the API's OpenGWAS ID resolution in `attrs["opengwas"]`, and `batches()` records `attrs["opengwas_batches"]`.
 - `tophits(clump=...)`: clump every hit on the server and return the leads, with `clump_size`, and the clump's counts in `attrs["clump"]`.
