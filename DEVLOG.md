@@ -9,6 +9,15 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #90: MCP metadata tools
+
+- **`opengwaspy.mcp.formatting`:** `TableResult` (pydantic, so clients get an output schema): `summary`, `total_rows`, `rows_returned`, `truncated`, `columns`, `rows`, `notes`, `provenance`. `table_result()` trims a DataFrame to chosen columns (`default`, `all` or a list) and `max_rows`, converts NaN and numpy values to JSON, and copies `release_id`, `catalog_version`, `releases`, `job_id(s)` and `image_digest` from `attrs`. `METADATA_COLUMNS` is the ticket's list.
+- **`search_analyses`:** `gwasinfo_search` with `limit=max_rows` (1-100, default 50; checked by the input schema before any request), `match`, and the five filters. The summary gives the API's `total`.
+- **`get_analyses`:** up to 100 IDs through compat's `resolve` (now with `client=` and `warn=False`, so the MCP session's client is used and warnings become `notes`). Rows gain `opengwas_id` when an OpenGWAS ID was translated; successor translations and IDs not held (with the API's reason) are notes; `provenance.opengwas_ids` keeps each translation.
+- `call()` now also turns `ValueError` (arguments opengwaspy refused) into tool errors. API refusals such as `query_too_broad` and `invalid_query` come back as tool errors with the API's message.
+- **Tests:** `tests/test_mcp_metadata.py` (14) and shared helpers in `tests/mcp_fakes.py`. ruff, mypy strict (62 files) and `pytest` (276 passed, 99% coverage) pass.
+- **Live: not yet verified.** Over stdio against 6433 (image `sha256:3f88e06a…`), `api_status` answered, but every data query got `503 release_unavailable`: Store OGS-00006 is now published as `format_version 0.3.0` and this API build reads only 0.1 and 0.2. The tools returned this as a tool error, as intended. Rerun the live check after 6433 is redeployed.
+
 ## 2026-11-27 - #89: MCP server skeleton
 
 - **Packaging:** the extra `mcp = ["mcp>=2.3,<3"]` and the console script `opengwaspy-mcp` (`opengwaspy.mcp.__main__:main`). `mcp` is also in the `dev` group, so CI's ruff, mypy strict and tests cover `opengwaspy.mcp` on Python 3.10-3.14. The core package gains no dependency. The SDK installed is `mcp` 2.3.0 (`MCPServer` from `mcp.server.mcpserver`).

@@ -153,7 +153,7 @@ async def call(session: Session, fn: Callable[[], T]) -> T:
     """Run a blocking opengwaspy call in a worker thread, turning its errors into tool errors."""
     try:
         return await anyio.to_thread.run_sync(fn)
-    except OpenGWASError as exc:
+    except (OpenGWASError, ValueError) as exc:  # ValueError: arguments opengwaspy refused
         raise tool_error(exc, session) from exc
 
 
@@ -217,6 +217,9 @@ def create_server(
         lifespan=lifespan,
     )
     register_status(server)
+    from opengwaspy.mcp import metadata
+
+    metadata.register(server)
     return server
 
 
