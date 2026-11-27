@@ -9,6 +9,15 @@ Newest entry first. Each entry: what changed, the evidence (commands, results, c
 - Gateway: opengwas/opengwas-gateway @ `452c6cb` (19 Nov 2026). `Authorization: Bearer <OpenGWAS JWT>`, JWT validity 14 days, Data API under `/ogdb/*`, `429` with `X-Allowance-*`, and `X-Service-Key` for services.
 - Live API: `http://host.lima.internal:6433`, `/openapi.json`, `/docs`, `/redoc`.
 
+## 2026-11-27 - #116: LD from downloaded LD Stores and Genotype Stores
+
+- **Mirrors ogdb-api `origin/main`** (which reads LD through `ogquery.ld` since #199): `ld_operations.py` (matrix, region, clump, proxies, reflookup rows and metadata), `ld_registry.LDStoreInfo.as_dict`/`facts` (the listing and the facts every LD result carries), `store_name` (directory name without `.store`), and `ld_jobs` (an `ogquery.ld.Refusal` is `422 ld_refusal` with its `reason`). Ported to `opengwaspy/local/_ld.py`.
+- **`og.local(paths=None, *, ld=None)`:** LD Stores and Genotype Stores open through `ogquery.ld.open`. Choosing: `store=` by name; `ancestry=` when exactly one open store has it, else `409 ambiguous_ld_store` or `404 ld_store_not_found` (the API's rule for an ancestry with several stores and no default, ogdb-api#195). Two stores with one name are refused. The LD functions take a `Source`; `ld_stores` lists the open stores with their `path`.
+- **Genotype Stores:** the `local-genotype` extra (`ogquery[genotype]`, pgenlib, Linux and macOS); a missing extra, or pgen files whose pinned size, checksum or mtime changed, are `LocalLDError`s that say what to do.
+- **Fixtures:** ogquery `v0.5.0`'s Test Panel LD Store, Genotype Store and pgen fileset (`tests/data/ogquery-ld/`, 1.3 MB). The tests set the pgen mtimes from the pins, as ogquery's tests do. On the Test Panel the Genotype Store's matrix equals the LD Store's within 0.02.
+- **CI:** the coverage omit on Python 3.10/3.11 now covers `local/_*.py`.
+- **Checks:** ruff, mypy (80 files), `pytest` 408 passed (99%); on 3.10, 374 passed, 2 skipped, 96%; `mkdocs build --strict`.
+
 ## 2026-11-27 - #114: top hits, PheWAS, variant lookups and metadata on a Local Source
 
 - **Mirrors ogdb-api `origin/main`:** `query_operations._top_hits` (the tightest stored tier at or above `threshold`, cut to |z| ≥ `z_critical(threshold)`, `limit` per analysis by |z| with ties in genome order, rows by Store, release, analysis then strength; `total` = rows returned), `_phewas` (cut before resolving; only releases with a by-variant read, as `releases._phewas_indexed`), `variants_by_rsid` / `variants_by_position` (the same filters), `releases._capabilities` (tiers from `data.zarr/top_hits/<key>`), and `main.metadata_lookup`'s no-catalog path for `gwasinfo` (each release's `analyses.tsv` rows, with `id`, `store_id`, `release_id`). The rank/cut helpers are ports of `ogdb_api/top_hits.py` over ogquery's public `z_critical`, `TOP_HIT_GROUP`, `threshold_key`.

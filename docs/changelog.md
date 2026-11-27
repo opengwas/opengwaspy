@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Local Source: LD from downloaded LD Stores and Genotype Stores, `og.local(ld=[...])`: `ld_matrix`, `ld_region`, `ld_clump`, `ld_proxies`, `ld_reflookup` and `ld_stores`, with the API's rows and refusals. Genotype Stores need the new `local-genotype` extra (#116).
 - Local Source: `tophits` (unclumped), `phewas`, `variants_rsid`, `variants_chrpos`, `gwasinfo` and `batches` answer from downloaded Store Releases, as the API answers them (#114).
 - **A Local Source** (preview): `og.local(paths)` opens downloaded format 0.3 Store Releases through ogquery, and answers `associations`, `associations_range` and `associations_analysis` with the API's rows, passed as `client`. The `local` extra (Python 3.12+). Functions that need the Data API refuse a Local Source with `LocalUnsupported` (#113).
 - `rho()`: a GWAS Store's Rho Matrix (the null correlation between its analyses), full or for chosen analyses, from the Data API's `POST /api/rho` (ogdb-api#181). A square `float32` DataFrame, with `n_null` and the estimation `settings` in `attrs`; a release without one is refused with `rho_unavailable` (#110).

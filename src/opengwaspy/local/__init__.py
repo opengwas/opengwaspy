@@ -16,7 +16,23 @@ Store Reader the Data API itself reads Stores with.
 
 from __future__ import annotations
 
-from opengwaspy.local._source import LocalExtraMissing, LocalRelease, LocalSource, local
+from opengwaspy.local._ld import LocalLDError, LocalLDStore
+from opengwaspy.local._source import (
+    LocalExtraMissing,
+    LocalRelease,
+    LocalSource,
+    LocalSourceError,
+    local,
+)
 from opengwaspy.source import LocalUnsupported
 
-__all__ = ["LocalExtraMissing", "LocalRelease", "LocalSource", "LocalUnsupported", "local"]
+__all__ = [
+    "LocalExtraMissing",
+    "LocalLDError",
+    "LocalLDStore",
+    "LocalRelease",
+    "LocalSource",
+    "LocalSourceError",
+    "LocalUnsupported",
+    "local",
+]
