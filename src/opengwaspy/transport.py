@@ -107,6 +107,7 @@ class Transport:
         self._jitter = jitter
         self._lock = threading.Lock()
         self._allowance_reset: float | None = None
+        self._allowance: dict[str, float] | None = None
 
     def close(self) -> None:
         """Close the HTTP client, if this transport created it."""
@@ -222,7 +223,29 @@ class Transport:
         delay: float = min(MAX_BACKOFF, 2.0 ** (attempt - 1))
         return delay / 2 + self._jitter() * delay / 2
 
+    @property
+    def allowance(self) -> dict[str, float] | None:
+        """The Gateway allowance from the latest response that gave it.
+
+        ``limit``, ``remaining`` and ``reset`` (Unix seconds), from the
+        ``X-Allowance-*`` headers, where present; ``None`` before any such
+        response (the Data API itself sends none).
+        """
+        with self._lock:
+            return dict(self._allowance) if self._allowance is not None else None
+
     def _note_allowance(self, response: httpx.Response) -> None:
+        seen: dict[str, float] = {}
+        for key in ("limit", "remaining", "reset"):
+            value = response.headers.get(f"X-Allowance-{key.title()}")
+            try:
+                seen[key] = float(value) if value is not None else float("nan")
+            except ValueError:
+                continue
+        seen = {k: v for k, v in seen.items() if v == v}  # drop NaN
+        if seen:
+            with self._lock:
+                self._allowance = seen
         if response.headers.get("X-Allowance-Remaining") != "0":
             return
         try:

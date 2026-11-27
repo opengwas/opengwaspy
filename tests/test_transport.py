@@ -283,3 +283,29 @@ def test_default_config_and_repr(monkeypatch: pytest.MonkeyPatch) -> None:
     assert transport.config.base_url == "http://env.test"
     assert "secret" not in repr(transport)
     transport.close()
+
+
+@respx.mock
+def test_allowance_headers_are_recorded(clock: FakeClock) -> None:
+    respx.get(f"{BASE}/api/status").mock(
+        side_effect=[
+            httpx.Response(200, json={}),
+            httpx.Response(
+                200,
+                json={},
+                headers={
+                    "X-Allowance-Limit": "100000",
+                    "X-Allowance-Remaining": "99950",
+                    "X-Allowance-Reset": "soon",
+                },
+            ),
+            httpx.Response(200, json={}),
+        ]
+    )
+    transport = make(clock)
+    transport.get("api/status")
+    assert transport.allowance is None
+    transport.get("api/status")
+    assert transport.allowance == {"limit": 100000.0, "remaining": 99950.0}
+    transport.get("api/status")  # a response without the headers keeps the last seen
+    assert transport.allowance == {"limit": 100000.0, "remaining": 99950.0}

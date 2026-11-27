@@ -97,7 +97,7 @@ def register(server: MCPServer[Session]) -> None:
                 "filters": {k: v for k, v in filters.items() if v is not None},
             },
         )
-        return session.scrub(result)
+        return session.finish(result)
 
     @server.tool(
         name="get_analyses",
@@ -138,4 +138,4 @@ def register(server: MCPServer[Session]) -> None:
             notes=notes,
             provenance={"opengwas_ids": resolved.opengwas},
         )
-        return session.scrub(result)
+        return session.finish(result)

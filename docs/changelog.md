@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- An MCP server for AI assistants (preview): the `mcp` extra and the `opengwaspy-mcp` command, over stdio, with tools `api_status`, `search_analyses`, `get_analyses`, `top_hits` (optionally clumped), `associations` (optionally with LD proxies), `region_associations`, `phewas`, `variant_info`, `ld_proxies` and `ld_matrix`. OpenGWAS IDs are translated. Results are trimmed for the model (a summary, main columns, up to 100 rows) with provenance. It uses the usual configuration, and never takes or returns a credential.
+- An MCP server for AI assistants (preview): the `mcp` extra and the `opengwaspy-mcp` command, over stdio, with tools `api_status`, `search_analyses`, `get_analyses`, `top_hits` (optionally clumped), `associations` (optionally with LD proxies), `region_associations`, `phewas`, `variant_info`, `ld_proxies` and `ld_matrix`. OpenGWAS IDs are translated. With an OpenGWAS token through the Gateway, each result shows the allowance left; a renewed token saved to the config file is used without a restart; an exhausted allowance fails at once with its reset time.
+- `Transport.allowance`: the Gateway's `X-Allowance-Limit`, `-Remaining` and `-Reset` from the latest response. Results are trimmed for the model (a summary, main columns, up to 100 rows) with provenance. It uses the usual configuration, and never takes or returns a credential.
 - `compat` takes OpenGWAS IDs (`ukb-b`, `ebi-a`, `eqtl-a`, and `finn-b` as successors, with a warning), translated by the Data API. Results add `opengwas_id`, and `attrs["opengwas_ids"]` records each translation. `compat.phewas(batch=...)` takes OpenGWAS batches too.
 - `gwasinfo()` records the API's OpenGWAS ID resolution in `attrs["opengwas"]`, and `batches()` records `attrs["opengwas_batches"]`.
 - `tophits(clump=...)`: clump every hit on the server and return the leads, with `clump_size`, and the clump's counts in `attrs["clump"]`.
